@@ -1,8 +1,6 @@
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { config } from "dotenv";
 
-config()
 
 const auth = getAuth(initializeApp({
     apiKey: process.env.API_KEY,

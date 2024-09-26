@@ -21,8 +21,8 @@ export default function Signup() {
             <h1>Signup</h1>
             <form onSubmit={handleSubmit}>
                 <input placeholder="Username" type="text"></input>
-                <input placeholder="Email" type="email"></input>
-                <input placeholder="Password" type="password"></input>
+                <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}></input>
+                <input placeholder="Password" type="password" defaultValue={password} onChange={(e) => setPassword(e.target.value)}></input>
                 <button type="submit">Signup</button>
             </form>
         </div>
