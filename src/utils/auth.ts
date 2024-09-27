@@ -1,4 +1,4 @@
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, UserCredential } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 
 
@@ -11,6 +11,10 @@ const auth = getAuth(initializeApp({
     appId: process.env.APP_ID
 }))
 
-export function createUser(email: string, password: string) {
+export function createUser(email: string, password: string): void {
     createUserWithEmailAndPassword(auth, email, password);
+}
+
+export function signInUser(email: string, password: string): Promise<UserCredential> {
+    return signInWithEmailAndPassword(auth, email, password);
 }
