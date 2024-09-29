@@ -1,6 +1,4 @@
 'use client'
-import { signInUser } from "@/utils/auth";
-import { UserCredential } from "firebase/auth";
 import { useState } from "react";
 
 export default function Login() {
@@ -10,7 +8,7 @@ export default function Login() {
 
   const handleChange = (e: React.FormEvent, fn: Function) => {
     e.preventDefault();
-    fn(e.currentTarget.nodeValue);
+    fn((e.target as HTMLInputElement).value);
   }
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -18,10 +16,10 @@ export default function Login() {
     let req = await fetch('/api/login', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', 
       },
       body: JSON.stringify({ email: email, password: password })
-    }).then(async res => setMessage('Hello!'))
+    }).then(async res => setMessage((await res.json()).message))
   }
 
   return (
@@ -31,8 +29,8 @@ export default function Login() {
         <input placeholder="Email" type="email" onChange={e => handleChange(e, setEmail)} defaultValue={email}></input>
         <input placeholder="Password" type="password" onChange={e => handleChange(e, setPassword)} defaultValue={password}></input>
         <button type="submit">Login</button>
-        <p defaultValue={message}></p>
       </form>
+      <p>{ message }</p>
     </div>
   );
 }
