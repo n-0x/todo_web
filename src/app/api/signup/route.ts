@@ -1,12 +1,12 @@
-import { createUser } from "@/utils/auth";
+import { AuthResultType, createUser } from "@/utils/auth";
 
 export async function POST(req: Request): Promise<Response> {
     try {
         const { username, email, password} = await req.json();
-        createUser(username, email, password);
-        return Response.json({ message: 'Signed up successful!', code: 200 })
+        const result: AuthResultType = await createUser(username, email, password);
+        return Response.json(result, { status: result.code})
     } catch(error) {
-        console.log('Failed to signup!');
-        return Response.json({ message: 'Failed to signup', code: 500 });
+        console.error('Failed to signup:', error);
+        return Response.json({ message: 'Server error' },  { status: 500 });
     }
 }
