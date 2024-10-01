@@ -47,6 +47,6 @@ export async function createUser(username: string, email: string, password: stri
     return new Promise<AuthResultType>((resolve) => resolve(result));
 }
 
-export function signInUser(email: string, password: string) {
+export function signInUser(username: string, password: string) {
 
 }

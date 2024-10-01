@@ -13,10 +13,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id Int @id @default(autoincrement())
-  email String @unique
-  username String @unique
-  pass_hash String
-  pass_salt String
+model user {
+  id         Int          @id @default(autoincrement())
+  email      String       @unique
+  username   String       @unique
+  pass_hash  String
+  pass_salt  String
+  auth_tokesn auth_users[]
+}
+
+model auth_users {
+  id       Int    @id @default(autoincrement())
+  user     user   @relation(fields: [username], references: [username])
+  auth_toke String @unique
+  username String
 }

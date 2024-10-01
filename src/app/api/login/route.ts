@@ -1,8 +1,9 @@
+import { signInUser } from "@/utils/auth";
 
 export async function POST(req: Request) {
     try {
-        const { email, password } = await req.json();
-        
+        const { username, password } = await req.json();
+        signInUser(username, password);
         
         
         return Response.json({ message: 'Welcome!', code: 200});
