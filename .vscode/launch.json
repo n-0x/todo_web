@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Run prisma migrate",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "npx prisma migrate dev --name init",
+            "cwd": "${cwd}"
+        },
+        {
             "command": "pnpm run dev",
             "name": "Run pnpm run dev",
             "request": "launch",

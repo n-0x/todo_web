@@ -15,36 +15,33 @@ export const AuthResult: Record<string, AuthResultType> = {
 export async function createUser(username: string, email: string, password: string): Promise<AuthResultType>{
     const pass_salt: string = await genSalt(Number.parseInt(process.env.SALT_ROUNDS as string));
     const pass_hash = await hash(password, pass_salt);
-    let result = AuthResult.UNKNOWN_ERROR;
-    await user.create({
+    let result = await user.create({
         data: {
             username: username,
             email: email,
             pass_hash: pass_hash,
             pass_salt: pass_salt,
         },
-    }).catch((err) => {
+    }).then( () => AuthResult.SUCCESS
+    ).catch((err) => {
         if (err instanceof PrismaClientKnownRequestError) {
             switch(err.code) {
                 case 'P2002': {
                     if (err.meta !== undefined) {
                         if (Array.isArray(err.meta.target)) {
                             if (err.meta.target.includes('email')) {
-                                result = AuthResult.EMAIL_EXISTS;
+                                return AuthResult.EMAIL_EXISTS;
                             } else if(err.meta.target.includes('username')) {
-                                result = AuthResult.USERNAME_EXISTS;
+                                return AuthResult.USERNAME_EXISTS;
                             }
                         }
                     }
                     break;
                 }
-
-                default: {
-                    console.error('Unknown error:', err);
-                    break
-                }
             }
         }
+        console.log('Unknown error:', err);
+        return AuthResult.UNKNOWN_ERROR;
     })
     console.log(username, result);
     return new Promise<AuthResultType>((resolve) => resolve(result));
