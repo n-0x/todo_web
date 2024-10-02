@@ -1,6 +1,7 @@
 import { genSalt, hash } from "bcryptjs";
 import { user } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import config from "@/config";
 
 export type AuthResultType = { message: string, code: number };
 export const AuthResult: Record<string, AuthResultType> = {
@@ -13,7 +14,7 @@ export const AuthResult: Record<string, AuthResultType> = {
 
 
 export async function createUser(username: string, email: string, password: string): Promise<AuthResultType>{
-    const pass_salt: string = await genSalt(Number.parseInt(process.env.SALT_ROUNDS as string));
+    const pass_salt: string = await genSalt(config.auth.salt_rounds as number);
     const pass_hash = await hash(password, pass_salt);
     let result = await user.create({
         data: {
