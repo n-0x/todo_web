@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 export default function Login() {
-  const [ email, setEmail ] = useState('');
+  const [ username, setUsername ] = useState('');
   const [ password, setPassword ] = useState('');
   const [ message, setMessage ] = useState('');
 
@@ -18,7 +18,7 @@ export default function Login() {
       headers: {
         'Content-Type': 'application/json', 
       },
-      body: JSON.stringify({ email: email, password: password })
+      body: JSON.stringify({ username: username, password: password })
     }).then(async res => setMessage((await res.json()).message))
   }
 
@@ -26,7 +26,7 @@ export default function Login() {
     <div>
       <h1>Login</h1>
       <form onSubmit={onSubmit}>
-        <input placeholder="Email" type="email" onChange={e => handleChange(e, setEmail)} defaultValue={email}></input>
+        <input placeholder="Username" type="text" onChange={e => handleChange(e, setUsername)} defaultValue={username}></input>
         <input placeholder="Password" type="password" onChange={e => handleChange(e, setPassword)} defaultValue={password}></input>
         <button type="submit">Login</button>
       </form>

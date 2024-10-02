@@ -18,5 +18,4 @@ model user {
   email      String       @unique
   username   String       @unique
   pass_hash  String
-  pass_salt  String
 }

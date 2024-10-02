@@ -1,29 +1,32 @@
-import { genSalt, hash } from "bcryptjs";
+import * as bcrypt from "bcryptjs";
 import { user } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
+import * as jwt from "jsonwebtoken";
 
 export type AuthResultType = { message: string, code: number };
-export const AuthResult: Record<string, AuthResultType> = {
+export const AuthResult: Record<
+    'SUCCESS' | 'EMAIL_EXISTS' | 'USERNAME_EXISTS' | 'UNKNOWN_ERROR' | 'WRONG_CREDENTIALS'
+, AuthResultType> = {
     SUCCESS: { message: 'Welcome!', code: 200},
     EMAIL_EXISTS: { message: 'This email is already in use!', code: 409 },
     USERNAME_EXISTS: { message: 'This username is not available!', code: 409 },
-    UNKNOWN_ERROR: { message: 'Unknown error, report to admin immediately!', code: 500}
+    UNKNOWN_ERROR: { message: 'Unknown error, report to admin immediately!', code: 500 },
+    WRONG_CREDENTIALS: { message: 'Either your username or your password is wrong!', code: 401 }
 }
 
 
 
 export async function createUser(username: string, email: string, password: string): Promise<AuthResultType>{
-    const pass_salt: string = await genSalt(config.auth.salt_rounds as number);
-    const pass_hash = await hash(password, pass_salt);
-    let result = await user.create({
+    const pass_salt: string = await bcrypt.genSalt(config.auth.salt_rounds as number);
+    const pass_hash = await bcrypt.hash(password, pass_salt);
+    let result: AuthResultType = await user.create({
         data: {
             username: username,
             email: email,
             pass_hash: pass_hash,
-            pass_salt: pass_salt,
-        },
-    }).then( () => AuthResult.SUCCESS
+        }
+    }).then(() => AuthResult.SUCCESS
     ).catch((err) => {
         if (err instanceof PrismaClientKnownRequestError) {
             switch(err.code) {
@@ -48,6 +51,31 @@ export async function createUser(username: string, email: string, password: stri
     return new Promise<AuthResultType>((resolve) => resolve(result));
 }
 
-export function signInUser(username: string, password: string) {
-    
+export async function signInUser(username: string, password: string): Promise<AuthResultType> {
+    try {
+        let result: 
+            { username: string; pass_hash: string; } | null
+        = await user.findUnique({
+            select: {
+                username: true,
+                pass_hash: true,
+            },
+            where: {
+                username: username
+            },
+        });
+
+        if (result === null) {
+            return AuthResult.WRONG_CREDENTIALS;
+        }
+
+        if (await bcrypt.compare(password, result.pass_hash)) {
+            return AuthResult.SUCCESS;
+        }
+
+        return AuthResult.WRONG_CREDENTIALS;
+    } catch(err) {
+        console.error('Unknown error:', err);
+        return AuthResult.UNKNOWN_ERROR;
+    }
 }
