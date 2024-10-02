@@ -1,4 +1,8 @@
-type ConfigType = Record<string, Record<string, string | number>>
+type ConfigType = {
+    auth: {
+        salt_rounds: number
+    }
+}
 const config:ConfigType = {
     auth: {
         salt_rounds: 12
