@@ -1,3 +1,4 @@
+import config from "@/config";
 import { AuthResult, AuthResultType, signInUser } from "@/utils/auth";
 import * as jwt from "jsonwebtoken";
 
@@ -13,10 +14,10 @@ export async function POST(req: Request) {
             },
             process.env.SECRET as string,
             {
-                expiresIn: '1h'
+                expiresIn: config.auth.expiry
             })
             headers = {
-                'Authorization': `Bearer ${jwtToken}`
+                'Set-Cookie': `auth-token=${jwtToken}; path=/; Secure; Max-Age=${config.auth.expiry}`
             }
         }
         
