@@ -23,7 +23,6 @@ export async function POST(req: Request) {
         
         return Response.json(result, { status: result.code, headers: headers });
     } catch(error) {
-        const data = await req.json();
         console.log(error);
         return Response.json({ message: 'Failed to login!', code: 500});
     }
