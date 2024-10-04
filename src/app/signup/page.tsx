@@ -7,7 +7,8 @@ export default function Signup() {
     const [ password, setPassword ] = useState('');
     const [ message, setMessage ] = useState('');
 
-    const handleSubmit = async (event: React.FormEvent) => {
+    const onSubmit = async (event: React.FormEvent) => {
+        setMessage('Loading...');
         event.preventDefault();
         const res = await fetch('/api/signup', {
             method: 'POST',
@@ -27,7 +28,7 @@ export default function Signup() {
     return (
         <div>
             <h1>Signup</h1>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={onSubmit}>
                 <input placeholder="Username" type="text" defaultValue={username} onChange={e => setUsername(e.target.value)}></input>
                 <input placeholder="Email" type="email" defaultValue={email} onChange={e => setEmail(e.target.value)}></input>
                 <input placeholder="Password" type="password" defaultValue={password} onChange={e => setPassword(e.target.value)}></input>

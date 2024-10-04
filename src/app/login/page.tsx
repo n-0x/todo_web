@@ -6,12 +6,8 @@ export default function Login() {
   const [ password, setPassword ] = useState('');
   const [ message, setMessage ] = useState('');
 
-  const handleChange = (e: React.FormEvent, fn: Function) => {
-    e.preventDefault();
-    fn((e.target as HTMLInputElement).value);
-  }
-
   const onSubmit = async (e: React.FormEvent) => {
+    setMessage('Loading...');
     e.preventDefault();
     let req = await fetch('/api/login', {
       method: 'POST',
@@ -22,7 +18,7 @@ export default function Login() {
     }).then(async res => {
       const json = await res.json();
       setMessage(json.message)
-      if (json.code === 200) {
+      if (res.ok) {
         window.location.replace('/')
       }
     })
@@ -32,8 +28,8 @@ export default function Login() {
     <div>
       <h1>Login</h1>
       <form onSubmit={onSubmit}>
-        <input placeholder="Username" type="text" onChange={e => handleChange(e, setUsername)} defaultValue={username}></input>
-        <input placeholder="Password" type="password" onChange={e => handleChange(e, setPassword)} defaultValue={password}></input>
+        <input placeholder="Username" type="text" onChange={e => setUsername(e.target.value)} defaultValue={username}></input>
+        <input placeholder="Password" type="password" onChange={e => setPassword(e.target.value)} defaultValue={password}></input>
         <button type="submit">Login</button>
       </form>
       <p>{ message }</p>

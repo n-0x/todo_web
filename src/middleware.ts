@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as jwt from "jsonwebtoken";
 import { NextURL } from "next/dist/server/web/next-url";
+import { jwtVerify } from "jose";
+import * as constants from "@/utils/constants";
 
-export function middleware(request: NextRequest) {
-    const dest: NextURL = request.nextUrl.clone();
-    let url = request.url;
-    if (request.cookies.has('auth-token')) {
-        if (jwt.verify(request.cookies.get('auth-token')?.value as string, process.env.SECRET as string)) {
-            return NextResponse.next();
+export async function middleware(req: NextRequest) {
+    const dest: NextURL = req.nextUrl.clone();
+    if (req.cookies.has('auth-token')) {
+        try {
+            const verified = await jwtVerify(req.cookies.get('auth-token')?.value as string, new TextEncoder().encode(constants.SECRET));
+            return NextResponse.next(); 
+        } catch(error) {
+            console.error(error);
         }
     }
 
-    dest.pathname = '/login';
+    dest.pathname = '/login'
     return NextResponse.redirect(dest);
 }
 
-export const config = {
-    matcher: '/((?!login|signup).*)',
+ export const config = {
+    matcher: '/((?!login|signup|api|_next).*)',
 }

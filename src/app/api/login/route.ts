@@ -1,29 +1,32 @@
 import config from "@/config";
 import { AuthResult, AuthResultType, signInUser } from "@/utils/auth";
-import * as jwt from "jsonwebtoken";
+import * as jose from "jose";
+import { nanoid } from "nanoid";
+import { NextResponse } from "next/server";
+import * as constants from "@/utils/constants";
 
 export async function POST(req: Request) {
     try {
         const { username, password } = await req.json();
         const result: AuthResultType = await signInUser(username, password);
-
-        let headers;
         if (result === AuthResult.SUCCESS) {
-            let jwtToken: string = jwt.sign({
-                user_id: username
-            },
-            process.env.SECRET as string,
-            {
-                expiresIn: config.auth.expiry
+            const token = await new jose.SignJWT()
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime(`${config.auth.expiry}secs`)
+            .setJti(nanoid())
+            .sign(new TextEncoder().encode(constants.SECRET));
+
+            let res: NextResponse = new NextResponse(JSON.stringify({ message:  result.message }), { status: result.code });
+            res.cookies.set('auth-token', token, {
+                maxAge: config.auth.expiry
             })
-            headers = {
-                'Set-Cookie': `auth-token=${jwtToken}; path=/; Secure; Max-Age=${config.auth.expiry}`
-            }
+
+            return res;
         }
-        
-        return Response.json(result, { status: result.code, headers: headers });
+        return NextResponse.json(result.message, { status: result.code });
     } catch(error) {
         console.log(error);
-        return Response.json({ message: 'Failed to login!', code: 500});
+        return NextResponse.json(AuthResult.UNKNOWN_ERROR.message, { status: AuthResult.UNKNOWN_ERROR.code });
     }
 }
