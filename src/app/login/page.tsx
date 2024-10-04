@@ -19,7 +19,13 @@ export default function Login() {
         'Content-Type': 'application/json', 
       },
       body: JSON.stringify({ username: username, password: password })
-    }).then(async res => setMessage((await res.json()).message))
+    }).then(async res => {
+      const json = await res.json();
+      setMessage(json.message)
+      if (json.code === 200) {
+        window.location.replace('/')
+      }
+    })
   }
 
   return (
