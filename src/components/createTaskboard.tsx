@@ -11,7 +11,7 @@ export default function CreateTaskboard() {
     
     return (
         <Dialog>
-            <div className="w-1/4 h-1/4 bg-red-700 *:ml-5 *:mr-5">
+            <div className="w-1/4 h-1/4 bg-red-700 p-5">
                 <h1 className="text-4xl">Create taskboard</h1>
                 <form onSubmit={ handleSubmit }>
                     <input placeholder="Name" type="text" onChange={ (e) => setName(e.target.value)} defaultValue= { name }></input>

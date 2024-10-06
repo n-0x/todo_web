@@ -10,7 +10,7 @@ export default function TaskBoardBar() {
     const createTaskboardComponente: JSX.Element = CreateTaskboard();
 
     const sideBarVisible: JSX.Element = (
-        <div className="flex bg-red-600  flex-col w-1/6">
+        <div className="flex bg-red-600 flex-col w-1/6">
             <div className="flex flex-row w-full justify-between *:m-2">
                 <h1>Task-Boards</h1>
                 <div className="flex flex-row *:ml-2">
