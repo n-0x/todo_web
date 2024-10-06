@@ -21,3 +21,19 @@ MongoClient.connect('mongodb://localhost:27017/todo_web', {
         password: secrets.mongodb.password
     }
 })
+.then((client) => {
+    client.db
+})
+
+class MongoDB {
+    db: Promise<MongoClient>;
+
+    constructor() {
+        this.db =  MongoClient.connect('mongodb://localhost:27017/todo_web', {
+            auth: {
+                username: secrets.mongodb.username,
+                password: secrets.mongodb.password
+            }
+        })
+    }
+}
