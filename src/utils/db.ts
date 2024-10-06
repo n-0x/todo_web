@@ -1,12 +1,19 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { MongoClient } from 'mongodb';
 import { secrets } from './constants';
+import { DefaultArgs } from '@prisma/client/runtime/library';
 
-const prisma = new PrismaClient();
+const prismaClient = new PrismaClient();
 
-prisma.$connect().catch(error => console.error(error));
+prismaClient.$connect().catch(error => console.error(error));
 
-export const user = prisma.user;
+type PrismaType = {
+    user: Prisma.userDelegate<DefaultArgs>
+}
+
+export const prisma: PrismaType = {
+    user: prismaClient.user
+};
 
 MongoClient.connect('mongodb://localhost:27017/todo_web', {
     auth: {

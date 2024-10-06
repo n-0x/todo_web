@@ -1,5 +1,5 @@
 import * as bcrypt from "bcryptjs";
-import { user } from "./db";
+import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import * as jwt from "jsonwebtoken";
@@ -20,7 +20,7 @@ export const AuthResult: Record<
 export async function createUser(username: string, email: string, password: string): Promise<AuthResultType>{
     const pass_salt: string = await bcrypt.genSalt(config.auth.salt_rounds as number);
     const pass_hash = await bcrypt.hash(password, pass_salt);
-    let result: AuthResultType = await user.create({
+    let result: AuthResultType = await prisma.user.create({
         data: {
             username: username,
             email: email,
@@ -55,7 +55,7 @@ export async function signInUser(username: string, password: string): Promise<Au
     try {
         let result: 
             { username: string; pass_hash: string; } | null
-        = await user.findUnique({
+        = await prisma.user.findUnique({
             select: {
                 username: true,
                 pass_hash: true,
