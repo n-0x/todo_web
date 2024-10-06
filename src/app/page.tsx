@@ -1,7 +1,9 @@
+import TaskSideBar from "@/components/taskSideBar";
+
 export default function Home() {
     return (
-        <div>
-            <h1>Logged in</h1>
+        <div className="flex flex-row h-screen">
+            <TaskSideBar />
         </div>
     )
 }
