@@ -15,7 +15,7 @@ export async function POST(req: Request) {
             .setIssuedAt()
             .setExpirationTime(`${config.auth.expiry}secs`)
             .setJti(nanoid())
-            .sign(new TextEncoder().encode(constants.SECRET));
+            .sign(new TextEncoder().encode(constants.secrets.jwt));
 
             let res: NextResponse = new NextResponse(JSON.stringify({ message:  result.message }), { status: result.code });
             res.cookies.set('auth-token', token, {

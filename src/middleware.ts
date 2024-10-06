@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
     const dest: NextURL = req.nextUrl.clone();
     if (req.cookies.has('auth-token')) {
         try {
-            const verified = await jwtVerify(req.cookies.get('auth-token')?.value as string, new TextEncoder().encode(constants.SECRET));
+            const verified = await jwtVerify(req.cookies.get('auth-token')?.value as string, new TextEncoder().encode(constants.secrets.jwt));
             return NextResponse.next(); 
         } catch(error) {
             console.error(error);
