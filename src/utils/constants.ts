@@ -5,6 +5,7 @@ type Secrets = {
         db_url: string
     },
     mongodb: {
+        host: string,
         username: string,
         password: string
     },
@@ -16,6 +17,7 @@ export const secrets: Secrets = {
         db_url: process.env.DATABASE_URL as string
     },
     mongodb: {
+        host: process.env.MONGODB_HOST as string, 
         username: process.env.MONGODB_USERNAME as string,
         password: process.env.MONGODB_PASSWORD as string
     },

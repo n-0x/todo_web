@@ -8,7 +8,8 @@ JWT_SECRET=""
 
 # Mongodb-secrets
 MONGODB_USER=""
-MONGODB_PASSWORD=\"\""""
+MONGODB_PASSWORD=""
+MONGODB_HOST=\"\""""
 
 def main():
     file = '.env'
