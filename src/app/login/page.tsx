@@ -9,7 +9,7 @@ export default function Login() {
   const onSubmit = async (e: React.FormEvent) => {
     setMessage('Loading...');
     e.preventDefault();
-    let req = await fetch('/api/login', {
+    let req = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json', 

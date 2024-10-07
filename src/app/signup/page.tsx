@@ -10,7 +10,7 @@ export default function Signup() {
     const onSubmit = async (event: React.FormEvent) => {
         setMessage('Loading...');
         event.preventDefault();
-        const res = await fetch('/api/signup', {
+        const res = await fetch('/api/auth/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
