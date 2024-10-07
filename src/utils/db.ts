@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client'
-import { MongoClient } from 'mongodb';
+import { Db, MongoClient } from 'mongodb';
 import { secrets } from './constants';
 import { DefaultArgs } from '@prisma/client/runtime/library';
 
@@ -26,14 +26,14 @@ MongoClient.connect('mongodb://localhost:27017/todo_web', {
 })
 
 class MongoDB {
-    db: Promise<MongoClient>;
+    db: Promise<Db>;
 
     constructor() {
-        this.db =  MongoClient.connect('mongodb://localhost:27017/todo_web', {
+        this.db =  MongoClient.connect(secrets.mongodb.host, {
             auth: {
                 username: secrets.mongodb.username,
                 password: secrets.mongodb.password
             }
-        })
+        }).then(client => client.db('todo_web'))
     }
 }
