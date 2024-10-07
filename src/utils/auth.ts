@@ -17,7 +17,11 @@ export const AuthResult: Record<
 
 
 
-export async function createUser(username: string, email: string, password: string): Promise<AuthResultType>{
+export async function createUser(username: string, email: string, password: string): Promise<AuthResultType> {
+    if (!username || !password) {
+        return new Promise((resolve) => resolve(AuthResult.UNKNOWN_ERROR));
+    }
+
     const pass_salt: string = await bcrypt.genSalt(config.auth.salt_rounds as number);
     const pass_hash = await bcrypt.hash(password, pass_salt);
     let result: AuthResultType = await prisma.user.create({

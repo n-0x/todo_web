@@ -4,6 +4,7 @@ import { jwtVerify } from "jose";
 import * as constants from "@/utils/constants";
 
 export async function middleware(req: NextRequest) {
+    console.log(req.url);
     const dest: NextURL = req.nextUrl.clone();
     if (req.cookies.has('auth-token')) {
         try {
@@ -19,5 +20,5 @@ export async function middleware(req: NextRequest) {
 }
 
  export const config = {
-    matcher: '/((?!login|signup|api|_next).*)',
+    matcher: '/((?!login|signup|api/auth|_next).*)',
 }
