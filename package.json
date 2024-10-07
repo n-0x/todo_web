@@ -11,6 +11,7 @@
   "dependencies": {
     "@prisma/client": "^5.20.0",
     "@types/bcryptjs": "^2.4.6",
+    "@types/mongodb": "^4.0.6",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "jose": "^5.9.3",

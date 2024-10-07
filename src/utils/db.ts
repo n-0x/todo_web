@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client'
-import { Db, MongoClient } from 'mongodb';
+import { Collection, Db, MongoClient } from 'mongodb';
 import { secrets } from './constants';
 import { DefaultArgs } from '@prisma/client/runtime/library';
 
@@ -25,15 +25,34 @@ MongoClient.connect('mongodb://localhost:27017/todo_web', {
     client.db
 })
 
-class MongoDB {
-    db: Promise<Db>;
+type MongoDoc = {
+    _id: string,
+    title: string,
+    tasks: object[]
+}
 
+class MongoDB {
+    boards: Promise<Collection<any>> | undefined;
+
+    db: Db | undefined;
     constructor() {
-        this.db =  MongoClient.connect(secrets.mongodb.host, {
+        MongoClient.connect(secrets.mongodb.host, {
             auth: {
                 username: secrets.mongodb.username,
                 password: secrets.mongodb.password
             }
-        }).then(client => client.db('todo_web'))
+        }).then(client => {
+            this.db = client.db('todo_web');
+            this.boards = this.db.createCollection<any>('boards');
+        })
+    }
+
+    async createBoard(boardName: string) {
+        await (await this.boards)?.insertOne({
+            title: boardName,
+            tasks: []
+        });
     }
 }
+
+export const mongodb = new MongoDB();
