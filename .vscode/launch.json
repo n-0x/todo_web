@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Generate secret",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
+            "cwd": "${cwd}"
+        },
+        {
             "name": "Run prisma migrate",
             "type": "PowerShell",
             "request": "launch",

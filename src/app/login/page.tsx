@@ -18,6 +18,7 @@ export default function Login() {
     }).then(async res => {
       const json = await res.json();
       setMessage(json.message)
+      window.localStorage.setItem('refresh-token', json.refreshToken);
       if (res.ok) {
         window.location.replace('/')
       }

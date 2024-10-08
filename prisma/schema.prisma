@@ -18,4 +18,12 @@ model user {
   email      String       @unique
   username   String       @unique
   pass_hash  String
+  auth tokens[]
+}
+
+model tokens {
+  id Int @id @default(autoincrement())
+  ownerID Int
+  token_id String @unique
+  owner user @relation(fields: [ownerID], references: [id])
 }

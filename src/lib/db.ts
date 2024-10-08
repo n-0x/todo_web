@@ -25,12 +25,6 @@ MongoClient.connect('mongodb://localhost:27017/todo_web', {
     client.db
 })
 
-type MongoDoc = {
-    _id: string,
-    title: string,
-    tasks: object[]
-}
-
 class MongoDB {
     boards: Promise<Collection<any>> | undefined;
 
