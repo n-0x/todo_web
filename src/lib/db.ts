@@ -9,10 +9,10 @@ prismaClient.$connect().catch(error => console.error(error));
 
 export const prisma: {
     user: Prisma.userDelegate<DefaultArgs>,
-    tokens: Prisma.tokensDelegate<DefaultArgs>
+    blacklisted_tokens: Prisma.blacklisted_tokensDelegate<DefaultArgs>
 } = {
     user: prismaClient.user,
-    tokens: prismaClient.tokens
+    blacklisted_tokens: prismaClient.blacklisted_tokens
 };
 
 MongoClient.connect('mongodb://localhost:27017/todo_web', {

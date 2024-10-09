@@ -28,9 +28,8 @@ export async function generateRefreshToken(user: string): Promise<string> {
     const expiry: Date = new Date();
     expiry.setDate(config.auth.refresh_expiry);
 
-    await prisma.tokens.create({
+    await prisma.blacklisted_tokens.create({
         data: {
-            valid: true,
             owner_name: user,
             jti: id,
             expires: expiry,
@@ -42,7 +41,7 @@ export async function generateRefreshToken(user: string): Promise<string> {
 
 export async function verifyRefreshToken(token: string, username: string): Promise<WebResultType> {
     const payload = (await jose.jwtVerify(token, new TextEncoder().encode(secrets.refresh_jwt))).payload;
-    const dbRes = await prisma.tokens.count({
+    const dbRes = await prisma.blacklisted_tokens.count({
         where: {
             owner_name: username,
             jti: payload.jti,
