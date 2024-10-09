@@ -8,25 +8,52 @@ import { WebResult, WebResultType, secrets } from "./constants";
 import { jwtDecrypt } from "jose";
 
 
-async function generateToken(userID: string, secret: string, expiry: string | number): Promise<string> {
-    return await new jose.SignJWT({ userID: userID })
+async function generateToken(user: string, secret: string, expiry: string): Promise<{id: string, token: string}> {
+    let id: string = nanoid();
+    return {
+        token: await new jose.SignJWT({ userID: user })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(expiry)
         .setJti(nanoid())
-        .sign(new TextEncoder().encode(secret))
+        .sign(new TextEncoder().encode(secret)),
+        id: id
+    }
 }
 
-export async function generateRefreshToken(userID: string): Promise<string> {
-    return await generateToken(userID, secrets.refresh_jwt, config.auth.refresh_expiry);
+export async function generateRefreshToken(user: string): Promise<string> {
+    const { token, id } = await generateToken(user, secrets.refresh_jwt, `${config.auth.refresh_expiry}days`);
+
+    const expiry: Date = new Date();
+    expiry.setDate(config.auth.refresh_expiry);
+
+    await prisma.tokens.create({
+        data: {
+            valid: true,
+            owner_name: user,
+            token_id: id,
+            expires: expiry,
+        }
+    })
+
+    return token;
 }
 
-export async function verifyRefreshToken(token: string) {
+export async function verifyRefreshToken(token: string, username: string) {
     const verified = await jwtDecrypt(token, new TextEncoder().encode(secrets.refresh_jwt));
+    const dbRes = await prisma.tokens.findUnique({
+        select: {
+            valid: true,
+        },
+        where: {
+            owner_name: username,
+            jti: verified.payload.jti
+        },
+    })
 }
 
 export async function generateAccessToken(userID: string): Promise<string> {
-    return await generateToken(userID, secrets.acces_jwt, config.auth.access_expiry);
+    return (await generateToken(userID, secrets.acces_jwt, config.auth.access_expiry)).token;
 }
 
 export async function createUser(username: string, email: string, password: string): Promise<WebResultType> {

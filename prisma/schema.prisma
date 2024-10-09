@@ -23,7 +23,9 @@ model user {
 
 model tokens {
   id Int @id @default(autoincrement())
-  ownerID Int
-  token_id String @unique
-  owner user @relation(fields: [ownerID], references: [id])
+  owner_name String
+  jti String @unique
+  valid Boolean
+  expires DateTime
+  owner user @relation(fields: [owner_name], references: [username])
 }

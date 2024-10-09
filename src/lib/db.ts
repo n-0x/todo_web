@@ -7,12 +7,12 @@ const prismaClient = new PrismaClient();
 
 prismaClient.$connect().catch(error => console.error(error));
 
-type PrismaType = {
-    user: Prisma.userDelegate<DefaultArgs>
-}
-
-export const prisma: PrismaType = {
-    user: prismaClient.user
+export const prisma: {
+    user: Prisma.userDelegate<DefaultArgs>,
+    tokens: Prisma.tokensDelegate<DefaultArgs>
+} = {
+    user: prismaClient.user,
+    tokens: prismaClient.tokens
 };
 
 MongoClient.connect('mongodb://localhost:27017/todo_web', {
