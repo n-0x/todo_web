@@ -1,5 +1,6 @@
 'use client'
-import { useState } from "react";
+import { cookies } from "next/headers";
+import { useEffect, useState } from "react";
 
 export default function Login() {
   const [ username, setUsername ] = useState('');
@@ -18,7 +19,6 @@ export default function Login() {
     }).then(async res => {
       const json = await res.json();
       setMessage(json.message)
-      window.localStorage.setItem('refresh-token', json.refreshToken);
       if (res.ok) {
         window.location.replace('/')
       }

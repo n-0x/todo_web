@@ -18,14 +18,13 @@ model user {
   email      String       @unique
   username   String       @unique
   pass_hash  String
-  auth tokens[]
+  auth blacklisted_tokens[]
 }
 
-model tokens {
+model blacklisted_tokens {
   id Int @id @default(autoincrement())
   owner_name String
   jti String @unique
-  valid Boolean
   expires DateTime
   owner user @relation(fields: [owner_name], references: [username])
 }

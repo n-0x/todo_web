@@ -1,15 +1,15 @@
-type ConfigType = {
-    auth: {
-        salt_rounds: number,
-        access_expiry: number,
-        refresh_expiry: number,
-    }
-}
-const config:ConfigType = {
+const config = {
     auth: {
         salt_rounds: 12,
-        access_expiry: 300, // 5 min
-        refresh_expiry: 14 // expiry in days
+        access_expiry: 10, // 5 min
+        refresh_expiry: 14, // expiry in days
+        jwt: {
+            alg: 'HS256',
+            issuer: 'me',
+        }
+    },
+    general: {
+        enforceHTTPS: false // change to true
     }
 }
 export default config;

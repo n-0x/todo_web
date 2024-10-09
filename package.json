@@ -15,7 +15,6 @@
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "jose": "^5.9.3",
-    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.9.0",
     "nanoid": "^5.0.7",
     "next": "14.2.13",

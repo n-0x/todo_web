@@ -2,20 +2,21 @@ import * as bcrypt from "bcryptjs";
 import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
-import * as jose from "jose";
 import { nanoid } from "nanoid";
 import { WebResult, WebResultType, secrets } from "./constants";
-import { jwtDecrypt } from "jose";
+import * as jose from 'jose';
 
 
-async function generateToken(user: string, secret: string, expiry: string): Promise<{id: string, token: string}> {
+async function generateToken(user: string, secret: string, expiry: string): Promise<{ id: string, token: string }> {
     let id: string = nanoid();
     return {
-        token: await new jose.SignJWT({ userID: user })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
+        token: await new jose.SignJWT()
+        .setProtectedHeader({ alg: config.auth.jwt.alg })
+        .setJti(id)
         .setExpirationTime(expiry)
-        .setJti(nanoid())
+        .setIssuer(config.auth.jwt.issuer)
+        .setIssuedAt(new Date())
+        .setSubject(user)
         .sign(new TextEncoder().encode(secret)),
         id: id
     }
@@ -31,7 +32,7 @@ export async function generateRefreshToken(user: string): Promise<string> {
         data: {
             valid: true,
             owner_name: user,
-            token_id: id,
+            jti: id,
             expires: expiry,
         }
     })
@@ -39,21 +40,24 @@ export async function generateRefreshToken(user: string): Promise<string> {
     return token;
 }
 
-export async function verifyRefreshToken(token: string, username: string) {
-    const verified = await jwtDecrypt(token, new TextEncoder().encode(secrets.refresh_jwt));
-    const dbRes = await prisma.tokens.findUnique({
-        select: {
-            valid: true,
-        },
+export async function verifyRefreshToken(token: string, username: string): Promise<WebResultType> {
+    const payload = (await jose.jwtVerify(token, new TextEncoder().encode(secrets.refresh_jwt))).payload;
+    const dbRes = await prisma.tokens.count({
         where: {
             owner_name: username,
-            jti: verified.payload.jti
+            jti: payload.jti,
         },
     })
+
+    if (dbRes > 0) {
+        return WebResult.auth.FORBIDDEN;
+    }
+
+    return WebResult.general.OK;
 }
 
 export async function generateAccessToken(userID: string): Promise<string> {
-    return (await generateToken(userID, secrets.acces_jwt, config.auth.access_expiry)).token;
+    return (await generateToken(userID, secrets.acces_jwt, `${config.auth.access_expiry}secs`)).token;
 }
 
 export async function createUser(username: string, email: string, password: string): Promise<WebResultType> {
