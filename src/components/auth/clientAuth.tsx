@@ -1,4 +1,10 @@
-import { Context, ContextType } from "react";
+import { GetServerSideProps } from "next"
+
+export const getServerSideProps = (async ({ req }) => {
+    
+    return { props: { code: req.statusCode as number } }
+  }) satisfies GetServerSideProps<{ code: number }>
+   
 
 export function withAuth(comp: JSX.Element): JSX.Element {
     const hoc = (): JSX.Element => {
