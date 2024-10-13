@@ -19,7 +19,9 @@ export const WebResult = {
         UNKNOWN_ERROR: { message: 'Unknown error, report to admin immediately!', code: 500 },
         WRONG_CREDENTIALS: { message: 'Either your username or your password is wrong!', code: 401 },
         FORBIDDEN: { message: 'Forbidden request!', code: 403 },
-        ACCES_EXPIRED: { message: 'Access-token expire!', code: 440 },
+        ACCESS_EXPIRED: { message: 'Access-token expired!', code: 440 },
+        ACCES_RENEWED: { message: 'Acces-token renewed!', code: 200 },
+        SESSION_EXPIRED: { message: '', code: 440 }
     },
     general: {
         INVALID_REQUEST: { message: 'Invalid request!', code: 400 },

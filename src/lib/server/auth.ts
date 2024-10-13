@@ -5,6 +5,7 @@ import config from "@/config";
 import { nanoid } from "nanoid";
 import { WebResult, WebResultType, secrets } from "./constants";
 import * as jose from 'jose';
+import { NextResponse } from "next/server";
 
 
 async function generateToken(user: string, secret: string, expiry: string): Promise<{ id: string, token: string }> {
@@ -39,7 +40,7 @@ export async function generateRefreshToken(user: string): Promise<string> {
     return token;
 }
 
-export async function verifyRefreshToken(token: string, username: string): Promise<WebResultType> {
+export async function verifyRefreshToken(token: string, username: string): Promise<boolean> {
     const payload = (await jose.jwtVerify(token, new TextEncoder().encode(secrets.refresh_jwt))).payload;
     const dbRes = await prisma.blacklisted_tokens.count({
         where: {
@@ -48,11 +49,18 @@ export async function verifyRefreshToken(token: string, username: string): Promi
         },
     })
 
-    if (dbRes > 0) {
-        return WebResult.auth.FORBIDDEN;
-    }
+    return dbRes == 0;
+}
 
-    return WebResult.general.OK;
+export async function setFreshTokens(user: string, res: NextResponse): Promise<void> {
+    let expiryRefresh: Date = new Date();
+    expiryRefresh.setDate(expiryRefresh.getDate() + config.auth.refresh_expiry);
+
+    let expiryAccess: Date = new Date();
+    expiryAccess.setSeconds(expiryAccess.getSeconds() + config.auth.access_expiry);
+
+    res.cookies.set('refresh-token', await generateRefreshToken(user), { path: '/api/auth/token', expires: expiryRefresh, sameSite: "strict", httpOnly: true, secure: config.general.enforceHTTPS });
+    res.cookies.set('auth-token', await generateAccessToken(user), { path: '/', expires: expiryAccess, httpOnly: false, secure: config.general.enforceHTTPS });
 }
 
 export async function generateAccessToken(userID: string): Promise<string> {

@@ -15,6 +15,16 @@ export const prisma: {
     blacklisted_tokens: prismaClient.blacklisted_tokens
 };
 
+export function invalidateRefreshToken(jti: string, user: string, expires: Date) {
+    prisma.blacklisted_tokens.create({
+        data: {
+            expires: expires,
+            jti: jti,
+            owner_name: user,
+        }
+    })
+}
+
 MongoClient.connect('mongodb://localhost:27017/todo_web', {
     auth: {
         username: secrets.mongodb.username,
