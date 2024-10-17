@@ -11,21 +11,11 @@ export const secrets = {
     refresh_jwt: process.env.REFRESH_JWT_SECRET as string,
 }
 
-export const WebResult = {
-    auth: {
-        SUCCESS: { message: 'Welcome!', code: 200 },
-        EMAIL_EXISTS: { message: 'This email is already in use!', code: 409 },
-        USERNAME_EXISTS: { message: 'This username is not available!', code: 409 },
-        UNKNOWN_ERROR: { message: 'Unknown error, report to admin immediately!', code: 500 },
-        WRONG_CREDENTIALS: { message: 'Either your username or your password is wrong!', code: 401 },
-        FORBIDDEN: { message: 'Forbidden request!', code: 403 },
-        ACCESS_EXPIRED: { message: 'Access-token expired!', code: 440 },
-        ACCES_RENEWED: { message: 'Acces-token renewed!', code: 200 },
-        SESSION_EXPIRED: { message: '', code: 440 }
-    },
-    general: {
-        INVALID_REQUEST: { message: 'Invalid request!', code: 400 },
-        OK: { message: 'Ok.', code: 200 }
-    }
+export const Status = {
+        OK: 200,
+        BAD_REQUEST: 400,
+        UNAUTHORIZED: 401,
+        FORBIDDEN: 403,
+        CONFLICT:  409,
+        INTERNAL_SERVER_ERROR: 500,
 }
-export type WebResultType = { message: string, code: number };

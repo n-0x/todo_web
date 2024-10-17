@@ -1,7 +1,7 @@
 import config from "@/config";
 import { parseJWT } from "@/lib/cross/auth";
 import { generateAccessToken, setFreshTokens } from "@/lib/server/auth";
-import { secrets, WebResult } from "@/lib/server/constants";
+import { secrets, Status } from "@/lib/server/constants";
 import { jwtVerify } from "jose";
 import { JWTExpired } from "jose/errors";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,10 +20,10 @@ export async function POST(req:NextRequest) {
                 console.error(error);
             }
 
-            return NextResponse.json({}, { status: WebResult.auth.SESSION_EXPIRED.code })
+            return NextResponse.json({}, { status: Status.FORBIDDEN })
         }
         
     } else {
-        return NextResponse.json(WebResult.general.INVALID_REQUEST.message, { status: WebResult.general.INVALID_REQUEST.code })
+        return NextResponse.json({}, { status: Status.BAD_REQUEST })
     }
 }

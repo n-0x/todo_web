@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NextURL } from "next/dist/server/web/next-url";
-import * as constants from "@/lib/server/constants";
 import { JWTExpired } from "jose/errors";
-import { secrets, WebResult } from "@/lib/server/constants";
+import { secrets, Status } from "@/lib/server/constants";
 import { jwtVerify } from "jose";
 import config from "./config";
 import { parseJWT } from "./lib/cross/auth";
@@ -39,7 +38,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
                     return NextResponse.next(
                         {
                             headers: headers,
-                            status: WebResult.auth.ACCESS_EXPIRED.code
+                            status: Status.FORBIDDEN
                         }
                     )
                 }

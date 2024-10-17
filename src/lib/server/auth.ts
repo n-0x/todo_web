@@ -3,7 +3,7 @@ import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import { nanoid } from "nanoid";
-import { WebResult, WebResultType, secrets } from "./constants";
+import { Status, secrets } from "./constants";
 import * as jose from 'jose';
 import { NextResponse } from "next/server";
 

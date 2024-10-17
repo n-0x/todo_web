@@ -1,5 +1,5 @@
 import { createUser } from "@/lib/server/auth";
-import { WebResultType } from "@/lib/server/constants";
+import { Status } from "@/lib/server/constants";
 
 export async function POST(req: Request): Promise<Response> {
     try {
