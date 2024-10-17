@@ -13,16 +13,16 @@ export function extractAuthCookie(): string | undefined {
     return /(?:auth-token=([^;]+))/g.exec(document.cookie)?.[0];
 }
 
-export async function renewTokenOnExpiry() {
+export function renewTokenOnExpiry() {
     let accesTokenRaw: string | undefined = extractAuthCookie();
     debugger;
     if (!accesTokenRaw) {
-        await renewAccesToken();
+        renewAccesToken();
         return;
     }
 
     let expiry: Date = new Date(1e3 * parseJWT(accesTokenRaw).exp);
     if (expiry.getTime() <= new Date().getTime()) {
-        await renewAccesToken();
+        renewAccesToken();
     }
 }

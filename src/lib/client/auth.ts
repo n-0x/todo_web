@@ -5,7 +5,7 @@ export function withAuth(): () => void {
 
     const beforeUnload = (e: Event) => {
         console.log('[TEST BEFORE UNLOAD]');
-        renewTokenOnExpiry().then();
+        renewTokenOnExpiry();
     }
 
     window.addEventListener('beforeunload', beforeUnload);
@@ -16,7 +16,7 @@ export function withAuth(): () => void {
 }
 
 export type WebResultType = { message: string, code: number };
-export async function renewAccesToken(): Promise<WebResultType> {
+export function renewAccesToken(): boolean {
     debugger
-    return await fetch('api/auth/token', { method: 'POST', keepalive: true,  }).then(async (res) => {console.log(res.url); return await res.json() as WebResultType; });
+    return navigator.sendBeacon('api/auth/token');
 }
