@@ -25,16 +25,6 @@ export function invalidateRefreshToken(jti: string, user: string, expires: Date)
     })
 }
 
-MongoClient.connect('mongodb://localhost:27017/todo_web', {
-    auth: {
-        username: secrets.mongodb.username,
-        password: secrets.mongodb.password
-    }
-})
-.then((client) => {
-    client.db
-})
-
 class MongoDB {
     boards: Promise<Collection<any>> | undefined;
 
@@ -42,9 +32,10 @@ class MongoDB {
     constructor() {
         MongoClient.connect(secrets.mongodb.host, {
             auth: {
-                username: secrets.mongodb.username,
+                username: secrets.mongodb.user,
                 password: secrets.mongodb.password
-            }
+            },
+            authMechanism: 'SCRAM-SHA-256'
         }).then(client => {
             this.db = client.db('todo_web');
             this.boards = this.db.createCollection<any>('boards');

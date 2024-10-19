@@ -4,7 +4,7 @@ export const secrets = {
     },
     mongodb: {
         host: process.env.MONGODB_HOST as string,
-        username: process.env.MONGODB_USERNAME as string,
+        user: process.env.MONGODB_USER as string,
         password: process.env.MONGODB_PASSWORD as string
     },
     acces_jwt: process.env.ACCESS_JWT_SECRET as string,
