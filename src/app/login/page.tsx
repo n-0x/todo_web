@@ -17,8 +17,7 @@ export default function Login() {
       },
       body: JSON.stringify({ username: username, password: password })
     }).then(async res => {
-      const json = await res.json();
-      setMessage(json.message)
+      setMessage(res.statusText)
       if (res.ok) {
         window.location.replace('/')
       }

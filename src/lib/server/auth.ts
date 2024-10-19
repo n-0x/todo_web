@@ -3,7 +3,7 @@ import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import { nanoid } from "nanoid";
-import { Status, secrets } from "./constants";
+import { Status, StatusWithMeta, secrets } from "./constants";
 import * as jose from 'jose';
 import { NextResponse } from "next/server";
 
@@ -40,7 +40,7 @@ export async function generateRefreshToken(user: string): Promise<string> {
     return token;
 }
 
-export async function verifyRefreshToken(token: string, username: string): Promise<boolean> {
+export async function verifyRefreshToken(token: string, username: string): Promise<number> {
     const payload = (await jose.jwtVerify(token, new TextEncoder().encode(secrets.refresh_jwt))).payload;
     const dbRes = await prisma.blacklisted_tokens.count({
         where: {
@@ -49,7 +49,7 @@ export async function verifyRefreshToken(token: string, username: string): Promi
         },
     })
 
-    return dbRes == 0;
+    return dbRes == 0 ? Status.OK : Status.FORBIDDEN;
 }
 
 export async function setFreshTokens(user: string, res: NextResponse): Promise<void> {
@@ -67,20 +67,20 @@ export async function generateAccessToken(userID: string): Promise<string> {
     return (await generateToken(userID, secrets.acces_jwt, `${config.auth.access_expiry}secs`)).token;
 }
 
-export async function createUser(username: string, email: string, password: string): Promise<WebResultType> {
+export async function createUser(username: string, email: string, password: string): Promise<StatusWithMeta> {
     if (!username || !password) {
-        return new Promise((resolve) => resolve(WebResult.auth.UNKNOWN_ERROR));
+        return { type: 'unkown_error', code: Status.INTERNAL_SERVER_ERROR };
     }
 
     const pass_salt: string = await bcrypt.genSalt(config.auth.salt_rounds as number);
     const pass_hash = await bcrypt.hash(password, pass_salt);
-    let result: WebResultType = await prisma.user.create({
+    let result: StatusWithMeta = await prisma.user.create({
         data: {
             username: username,
             email: email,
             pass_hash: pass_hash,
         }
-    }).then(() => WebResult.auth.SUCCESS
+    }).then(() => { return { code: Status.OK }; }
     ).catch((err) => {
         if (err instanceof PrismaClientKnownRequestError) {
             switch (err.code) {
@@ -88,9 +88,9 @@ export async function createUser(username: string, email: string, password: stri
                     if (err.meta !== undefined) {
                         if (Array.isArray(err.meta.target)) {
                             if (err.meta.target.includes('email')) {
-                                return WebResult.auth.EMAIL_EXISTS;
+                                return { type: 'email', code: Status.CONFLICT };
                             } else if (err.meta.target.includes('username')) {
-                                return WebResult.auth.USERNAME_EXISTS;
+                                return { type: 'username', code: Status.CONFLICT };
                             }
                         }
                     }
@@ -99,13 +99,12 @@ export async function createUser(username: string, email: string, password: stri
             }
         }
         console.log('Unknown error:', err);
-        return WebResult.auth.UNKNOWN_ERROR;
+        return { code: Status.INTERNAL_SERVER_ERROR };
     })
-    console.log(username, result);
-    return new Promise<WebResultType>((resolve) => resolve(result));
+    return result;
 }
 
-export async function signInUser(username: string, password: string): Promise<WebResultType> {
+export async function signInUser(username: string, password: string): Promise<number> {
     try {
         let result:
             { username: string; pass_hash: string; } | null
@@ -120,16 +119,16 @@ export async function signInUser(username: string, password: string): Promise<We
             });
 
         if (result === null) {
-            return WebResult.auth.WRONG_CREDENTIALS;
+            return Status.UNAUTHORIZED;
         }
 
         if (await bcrypt.compare(password, result.pass_hash)) {
-            return WebResult.auth.SUCCESS;
+            return Status.OK;
         }
 
-        return WebResult.auth.WRONG_CREDENTIALS;
+        return Status.UNAUTHORIZED;
     } catch (err) {
         console.error('Unknown error:', err);
-        return WebResult.auth.UNKNOWN_ERROR;
+        return Status.INTERNAL_SERVER_ERROR;
     }
 }
