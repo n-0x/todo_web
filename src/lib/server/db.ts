@@ -7,23 +7,11 @@ const prismaClient = new PrismaClient();
 
 prismaClient.$connect().catch(error => console.error(error));
 
-export const prisma: {
-    user: Prisma.userDelegate<DefaultArgs>,
-    blacklisted_tokens: Prisma.blacklisted_tokensDelegate<DefaultArgs>
-} = {
+export const prisma = {
     user: prismaClient.user,
-    blacklisted_tokens: prismaClient.blacklisted_tokens
+    web_tokens: prismaClient.web_tokens,
+    api_tokens: prismaClient.api_tokens
 };
-
-export function invalidateRefreshToken(jti: string, user: string, expires: Date) {
-    prisma.blacklisted_tokens.create({
-        data: {
-            expires: expires,
-            jti: jti,
-            owner_name: user,
-        }
-    })
-}
 
 class MongoDB {
     boards: Promise<Collection<any>> | undefined;

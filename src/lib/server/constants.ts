@@ -20,7 +20,7 @@ export const Status = {
     INTERNAL_SERVER_ERROR: 500,
 }
 
-export interface StatusWithMeta {
+export interface IStatusWithMeta {
     type?: string,
     code: number
 }

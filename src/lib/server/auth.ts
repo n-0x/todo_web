@@ -3,9 +3,10 @@ import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import { nanoid } from "nanoid";
-import { Status, StatusWithMeta, secrets } from "./constants";
+import { Status, IStatusWithMeta, secrets } from "./constants";
 import * as jose from 'jose';
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 
 
 async function generateToken(user: string, secret: string, expiry: string): Promise<{ id: string, token: string }> {
@@ -67,14 +68,14 @@ export async function generateAccessToken(userID: string): Promise<string> {
     return (await generateToken(userID, secrets.acces_jwt, `${config.auth.access_expiry}secs`)).token;
 }
 
-export async function createUser(username: string, email: string, password: string): Promise<StatusWithMeta> {
+export async function createUser(username: string, email: string, password: string): Promise<IStatusWithMeta> {
     if (!username || !password) {
         return { type: 'unkown_error', code: Status.INTERNAL_SERVER_ERROR };
     }
 
     const pass_salt: string = await bcrypt.genSalt(config.auth.salt_rounds as number);
     const pass_hash = await bcrypt.hash(password, pass_salt);
-    let result: StatusWithMeta = await prisma.user.create({
+    let result: IStatusWithMeta = await prisma.user.create({
         data: {
             username: username,
             email: email,
@@ -130,5 +131,42 @@ export async function signInUser(username: string, password: string): Promise<nu
     } catch (err) {
         console.error('Unknown error:', err);
         return Status.INTERNAL_SERVER_ERROR;
+    }
+}
+
+interface IAuthState {
+    api?: {
+        expires: Date | undefined,
+        token: string
+    },
+    web?: {
+        expires: Date | undefined,
+        token: string
+    }
+}
+
+class AuthStateProvider {
+    private authState = new Map<string, IAuthState>(); // username, auth-state
+
+    generateWebToken(user: string) {
+
+        let token:string = randomBytes(64).toString('base64');
+        let expires: Date = new Date();
+        expires.setDate(expires.getDate() + config.auth.web_expiry);
+
+        if (this.authState.has(user)) {
+            (this.authState.get(user) as IAuthState).web = { expires: expires, token: token };
+        } else {
+            this.authState.set(user, { web: { expires: expires, token: token }})
+        }
+
+        prisma.web_tokens.delete({ where: { username: user } })
+        prisma.web_tokens.create({
+            data: {
+                username: user,
+                token: token,
+                expires: expires,
+            }
+        })
     }
 }
