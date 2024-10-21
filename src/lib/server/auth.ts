@@ -145,11 +145,15 @@ interface IAuthState {
     }
 }
 
+interface Token {
+    token: string,
+    expires: Date,
+}
+
 class AuthStateProvider {
     private authState = new Map<string, IAuthState>(); // username, auth-state
 
-    generateWebToken(user: string) {
-
+    generateWebToken(user: string): Token {
         let token:string = randomBytes(64).toString('base64');
         let expires: Date = new Date();
         expires.setDate(expires.getDate() + config.auth.web_expiry);
@@ -160,13 +164,40 @@ class AuthStateProvider {
             this.authState.set(user, { web: { expires: expires, token: token }})
         }
 
-        prisma.web_tokens.delete({ where: { username: user } })
+        prisma.web_tokens.delete({ where: { username: user } });
         prisma.web_tokens.create({
             data: {
                 username: user,
                 token: token,
                 expires: expires,
             }
-        })
+        });
+
+        return { token: token, expires: expires };
+    }
+
+    generateApiToken(user: string) {
+        
+        let token:string = randomBytes(64).toString('base64');
+        let expires: Date = new Date();
+        expires.setDate(expires.getDate() + config.auth.api_expiry);
+
+        if (this.authState.has(user)) {
+            (this.authState.get(user) as IAuthState).api = { expires: expires, token: token };
+        } else {
+            this.authState.set(user, { api: { expires: expires, token: token }})
+        }
+
+        prisma.api_tokens.delete({ where: { username: user } });
+        prisma.api_tokens.create({
+            data: {
+                username: user,
+                token: token,
+                expires: expires,
+            }
+        });
+
+        return { token: token, expires: expires };
+
     }
 }

@@ -24,3 +24,9 @@ export interface IStatusWithMeta {
     type?: string,
     code: number
 }
+
+export const Time = {
+    SECONDS: 1,
+    MINUTES: 60,
+    DAYS: 86_400,
+}
