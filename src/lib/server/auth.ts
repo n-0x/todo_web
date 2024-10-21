@@ -7,51 +7,7 @@ import { Status, IStatusWithMeta, secrets } from "./constants";
 import * as jose from 'jose';
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-
-
-async function generateToken(user: string, secret: string, expiry: string): Promise<{ id: string, token: string }> {
-    let id: string = nanoid();
-    return {
-        token: await new jose.SignJWT()
-        .setProtectedHeader({ alg: config.auth.jwt.alg })
-        .setJti(id)
-        .setExpirationTime(expiry)
-        .setIssuer(config.auth.jwt.issuer)
-        .setIssuedAt(new Date())
-        .setSubject(user)
-        .sign(new TextEncoder().encode(secret)),
-        id: id
-    }
-}
-
-export async function generateRefreshToken(user: string): Promise<string> {
-    const { token, id } = await generateToken(user, secrets.refresh_jwt, `${config.auth.refresh_expiry}days`);
-
-    const expiry: Date = new Date();
-    expiry.setDate(config.auth.refresh_expiry);
-
-    await prisma.blacklisted_tokens.create({
-        data: {
-            owner_name: user,
-            jti: id,
-            expires: expiry,
-        }
-    })
-
-    return token;
-}
-
-export async function verifyRefreshToken(token: string, username: string): Promise<number> {
-    const payload = (await jose.jwtVerify(token, new TextEncoder().encode(secrets.refresh_jwt))).payload;
-    const dbRes = await prisma.blacklisted_tokens.count({
-        where: {
-            owner_name: username,
-            jti: payload.jti,
-        },
-    })
-
-    return dbRes == 0 ? Status.OK : Status.FORBIDDEN;
-}
+import { JWTExpired, JWTInvalid } from "jose/errors";
 
 export async function setFreshTokens(user: string, res: NextResponse): Promise<void> {
     let expiryRefresh: Date = new Date();
@@ -62,10 +18,6 @@ export async function setFreshTokens(user: string, res: NextResponse): Promise<v
 
     res.cookies.set('refresh-token', await generateRefreshToken(user), { path: '/api/auth/token', expires: expiryRefresh, sameSite: "strict", httpOnly: true, secure: config.general.enforceHTTPS });
     res.cookies.set('auth-token', await generateAccessToken(user), { path: '/', expires: expiryAccess, httpOnly: false, secure: config.general.enforceHTTPS });
-}
-
-export async function generateAccessToken(userID: string): Promise<string> {
-    return (await generateToken(userID, secrets.acces_jwt, `${config.auth.access_expiry}secs`)).token;
 }
 
 export async function createUser(username: string, email: string, password: string): Promise<IStatusWithMeta> {
@@ -135,69 +87,137 @@ export async function signInUser(username: string, password: string): Promise<nu
 }
 
 interface IAuthState {
-    api?: {
-        expires: Date | undefined,
-        token: string
-    },
-    web?: {
-        expires: Date | undefined,
-        token: string
-    }
-}
-
-interface Token {
-    token: string,
+    api_token?: string,
+    web_token?: string,
     expires: Date,
 }
 
 class AuthStateProvider {
-    private authState = new Map<string, IAuthState>(); // username, auth-state
 
-    generateWebToken(user: string): Token {
-        let token:string = randomBytes(64).toString('base64');
+    /**
+     * Map containing all currently cached auth-states
+     */
+    private authStates = new Map<string, IAuthState>();
+
+    /**
+     * Generate a opeaque token a token for the user
+     * @param user The user to generate the token for
+     * @param type Either a `api_token` or `web_token`
+     * @returns A reference to the auth-state after the generation
+     */
+    private generateToken(user: string, type: 'api_token' | 'web_token'): IAuthState {
         let expires: Date = new Date();
-        expires.setDate(expires.getDate() + config.auth.web_expiry);
+        expires.setDate(expires.getDate() + config.auth.long_token_epxiry);
+        const token: string = randomBytes(64).toString('base64');
+        let authState: IAuthState | undefined = undefined;
 
-        if (this.authState.has(user)) {
-            (this.authState.get(user) as IAuthState).web = { expires: expires, token: token };
+        if (this.authStates.has(user)) {
+            authState = this.authStates.get(user) as IAuthState;
+            authState[type] = token;
         } else {
-            this.authState.set(user, { web: { expires: expires, token: token }})
+            authState = { expires: expires };
+            authState[type] = token;
+            this.authStates.set(user, authState);
         }
 
-        prisma.web_tokens.delete({ where: { username: user } });
-        prisma.web_tokens.create({
-            data: {
-                username: user,
-                token: token,
-                expires: expires,
-            }
-        });
-
-        return { token: token, expires: expires };
+        return authState;
     }
 
-    generateApiToken(user: string) {
-        
-        let token:string = randomBytes(64).toString('base64');
-        let expires: Date = new Date();
-        expires.setDate(expires.getDate() + config.auth.api_expiry);
+    /**
+     * Generate both `web_token` and `api_token` for a user
+     * @param user The user to generate the token for
+     * @returns    True if successful, false otherwise
+     */
+    async generateAuthTokens(user: string): Promise<boolean> {
+        this.generateToken(user, 'api_token');
+        const authState: IAuthState = this.generateToken(user, 'web_token');
 
-        if (this.authState.has(user)) {
-            (this.authState.get(user) as IAuthState).api = { expires: expires, token: token };
-        } else {
-            this.authState.set(user, { api: { expires: expires, token: token }})
+        try {
+            await prisma.long_lived_tokens.upsert({
+                create: {
+                    username: user,
+                    expires: authState.expires,
+                    api_token: authState.api_token as string,
+                    web_token: authState.web_token as string,
+                },
+                update: {
+                    username: user,
+                    expires: authState.expires,
+                    api_token: authState.api_token as string,
+                    web_token: authState.web_token as string,
+                },
+                where: {
+                    username: user,
+                },
+            })
+        } catch(error) {
+            console.log('Unexpected error during creation of both tokens:', error);
+            return false;
         }
 
-        prisma.api_tokens.delete({ where: { username: user } });
-        prisma.api_tokens.create({
-            data: {
-                username: user,
-                token: token,
-                expires: expires,
-            }
-        });
+        return true;
+    }
 
-        return { token: token, expires: expires };
+    /**
+     * Only generate the api-token for the user
+     * @param   user The user to generate the token for
+     * @returns      True if successful, false otherwise
+     */
+    async generateAPIToken(user: string): Promise<boolean> {
+        const authState: IAuthState = this.generateToken(user, 'api_token');
 
+        try {
+            await prisma.long_lived_tokens.update({
+                data: {
+                    api_token: authState.api_token
+                },
+                where: {
+                    username: user
+                }
+            })
+        } catch (error) {
+            console.error('Unexpected error accourd while creating api-token:', error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Generate an jwt-access-token for a specific user
+     * @param user The user to generate the token for
+     * @returns A promise containing the generated token if successfuly, undefined otherwise
+     */
+    async generateAccessToken(user: string): Promise<string | undefined> {
+        const expires: Date = new Date();
+        expires.setSeconds(expires.getSeconds() + config.auth.access_expiry);
+        try {
+            return (await new jose.SignJWT()
+            .setProtectedHeader({ alg: config.auth.jwt.alg })
+            .setJti(nanoid())
+            .setExpirationTime(expires)
+            .setIssuer(config.auth.jwt.issuer)
+            .setIssuedAt(new Date())
+            .setSubject(user)
+            .sign(new TextEncoder().encode(secrets.acces_jwt)));
+        } catch(error) {
+            console.error('Unexpected error during access-token generation:', error);
+        }
+    }
+
+    /**
+     * Check if a acces-token is valid
+     * @param token The token to verify
+     * @returns A promise containing the user if valid, undefined otherwise and when an unexpected error occurs
+     */
+    async isAccesJWTValid(token: string): Promise<string | undefined> {
+        try {
+            return (await jose.jwtVerify(token, new TextEncoder().encode(secrets.acces_jwt))).payload.sub;
+        } catch(error) {
+            if (!(error instanceof JWTExpired || error instanceof JWTInvalid)) {
+                console.error('Unexpected error while validating access-token:', error);
+            }    
+        }
+        return;
     }
 }

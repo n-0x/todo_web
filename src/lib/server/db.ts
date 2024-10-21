@@ -8,9 +8,8 @@ const prismaClient = new PrismaClient();
 prismaClient.$connect().catch(error => console.error(error));
 
 export const prisma = {
-    user: prismaClient.user,
-    web_tokens: prismaClient.web_tokens,
-    api_tokens: prismaClient.api_tokens
+    user: prismaClient.users,
+    long_lived_tokens: prismaClient.long_lived_tokens
 };
 
 class MongoDB {

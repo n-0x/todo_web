@@ -13,26 +13,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model user {
+model users {
   id         Int          @id @default(autoincrement())
   email      String       @unique
   username   String       @unique
   pass_hash  String
 
-  web_tokens web_tokens[]
-  api_tokens api_tokens[]
+  long_lived_tokens long_lived_tokens[]
 }
 
-model web_tokens {
-  owner user @relation(fields: [ username ], references: [username])
-  username String @unique
-  token String
-  expires DateTime
-}
-
-model api_tokens {
-  owner user @relation(fields: [ username ], references: [username])
-  username String @unique
-  token String
-  expires DateTime
+model long_lived_tokens {
+  id         Int           @id @default(autoincrement())
+  user       users         @relation(fields: [username], references: [username])
+  username   String        @unique
+  api_token  String
+  web_token  String
+  expires     DateTime
 }
