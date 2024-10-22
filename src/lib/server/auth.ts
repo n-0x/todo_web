@@ -9,17 +9,6 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { JWTExpired, JWTInvalid } from "jose/errors";
 
-export async function setFreshTokens(user: string, res: NextResponse): Promise<void> {
-    let expiryRefresh: Date = new Date();
-    expiryRefresh.setDate(expiryRefresh.getDate() + config.auth.refresh_expiry);
-
-    let expiryAccess: Date = new Date();
-    expiryAccess.setSeconds(expiryAccess.getSeconds() + config.auth.access_expiry);
-
-    res.cookies.set('refresh-token', await generateRefreshToken(user), { path: '/api/auth/token', expires: expiryRefresh, sameSite: "strict", httpOnly: true, secure: config.general.enforceHTTPS });
-    res.cookies.set('auth-token', await generateAccessToken(user), { path: '/', expires: expiryAccess, httpOnly: false, secure: config.general.enforceHTTPS });
-}
-
 export async function createUser(username: string, email: string, password: string): Promise<IStatusWithMeta> {
     if (!username || !password) {
         return { type: 'unkown_error', code: Status.INTERNAL_SERVER_ERROR };
@@ -97,7 +86,7 @@ class AuthStateProvider {
     /**
      * Map containing all currently cached auth-states
      */
-    private authStates = new Map<string, IAuthState>();
+    authStates = new Map<string, IAuthState>();
 
     /**
      * Generate a opeaque token a token for the user
@@ -220,4 +209,38 @@ class AuthStateProvider {
         }
         return;
     }
+
+    /**
+     * Function to set both the refresh-token and the access-token
+     * @param refreshToken the user 
+     * @param res 
+     */
+    async setFreshTokensOnClient(refreshToken: string, res: NextResponse): Promise<boolean> {
+        let expiryRefresh: Date = new Date();
+        expiryRefresh.setDate(expiryRefresh.getDate() + config.auth.long_token_epxiry);
+    
+        let expiryAccess: Date = new Date();
+        expiryAccess.setSeconds(expiryAccess.getSeconds() + config.auth.access_expiry);
+    
+        const secure: boolean = process.env.NODE_ENV === 'production';
+    
+        let user: string = '';
+        
+        this.authStates.keys().map((val: string) => {
+            if (this.authStates.get(val)?.api_token === refreshToken) {
+                user = val;
+            }
+        })
+
+        if (!user) {
+            return false;
+        }
+    
+        res.cookies.set('refresh-token', authStateProvider.authStates.get(user)?.api_token as string, { path: '/api/auth/token', expires: expiryRefresh, sameSite: "strict", httpOnly: true, secure: secure });
+        res.cookies.set('auth-token', await authStateProvider.generateAccessToken(user) as string, { path: '/', expires: expiryAccess, httpOnly: false, secure: secure });
+
+        return false;
+    }
 }
+
+export const authStateProvider = new AuthStateProvider();

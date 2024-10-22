@@ -5,10 +5,11 @@ import { secrets, Status } from "@/lib/server/constants";
 import { jwtVerify } from "jose";
 import config from "./config";
 import { parseJWT } from "./lib/cross/auth";
+import { authStateProvider } from "./lib/server/auth";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
     const allowed = /^\/(?:(?:login|signup)|(?:_next\/.*)|(?:api\/auth\/(?:login|signup)))\/?$/;
-    
+
     if (allowed.test(req.nextUrl.pathname)) {
         return NextResponse.next();
     }
@@ -16,36 +17,21 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     const dest: NextURL = req.nextUrl.clone();
     if (dest.pathname === '/api/auth/token') {
         if (req.cookies.has('refresh-token')) {
-            try {
-                await jwtVerify(req.cookies.get('refresh-token')?.value as string, new TextEncoder().encode(secrets.refresh_jwt))
+
+            if (await authStateProvider.isAccesJWTValid(req.cookies.get('refresh-token')?.value as string)) {
                 return NextResponse.next();
-            } catch(error) {}
+            }
         }
-        return NextResponse.json({}, { status: 401 });
+        return NextResponse.json({}, { status: Status.UNAUTHORIZED });
     }
 
     if (req.cookies.has('auth-token')) {
         let token: string = req.cookies.get('auth-token')?.value as string;
-        try {
-            await jwtVerify(token, new TextEncoder().encode(secrets.acces_jwt));
-        } catch(error) {
-            if (error instanceof JWTExpired) {
-                let expiry = new Date(1e3 * parseJWT(token).exp);
-
-                if (expiry < new Date(new Date().getTime() + config.auth.access_mercy)) {
-                    let headers: HeadersInit = new Headers();
-                    headers.set('x-access-token-expired', 'true');
-                    return NextResponse.next(
-                        {
-                            headers: headers,
-                            status: Status.FORBIDDEN
-                        }
-                    )
-                }
-            }
-            return NextResponse.json({}, { status: 401 })
+        if (await authStateProvider.isAccesJWTValid(token)) {
+            return NextResponse.next();
+        } else {
+            return NextResponse.json({}, { status: Status.UNAUTHORIZED });
         }
-        return NextResponse.next();
     }
 
     dest.pathname = '/login'
