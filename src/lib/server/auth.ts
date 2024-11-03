@@ -3,11 +3,8 @@ import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import { nanoid } from "nanoid";
-import { Status, IStatusWithMeta, secrets } from "./constants";
-import * as jose from 'jose';
+import { Status, IStatusWithMeta, secrets, AuthToken } from "./constants";
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
-import { JWTExpired, JWTInvalid } from "jose/errors";
 
 export async function createUser(username: string, email: string, password: string): Promise<IStatusWithMeta> {
     if (!username || !password) {
@@ -75,36 +72,85 @@ export async function signInUser(username: string, password: string): Promise<nu
     }
 }
 
-interface IAuthState {
+export function setTokensOnRes(state: IAuthState, res: NextResponse) {
+    res.cookies.set('web_token', state.web_token as string , { path: '/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
+    res.cookies.set('api_token', state.api_token as string , { path: '/api/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
+}
+
+export interface IAuthState {
     api_token?: string,
     web_token?: string,
     expires: Date,
+    renew: Date
 }
+
+/**
+ * The 3 states of an auth-token:
+ * - `SOUR`: A token needs to be renewed
+ * - `VALID`: Token is valid
+ * - `INVALID`: Token is invalid or expired
+ */
+export enum AuthTokenStatus {
+    SOUR, VALID, INVALID
+};
 
 class AuthStateProvider {
 
     /**
      * Map containing all currently cached auth-states
      */
-    authStates = new Map<string, IAuthState>();
+    private authStates = new Map<string, IAuthState>();
+    private cached = false;
+
 
     /**
-     * Generate a opeaque token a token for the user
+     * Cache all auth-states from the db without blocking the loop
+     */
+    constructor() {
+        console.log('Caching auth-states from db...');
+        prisma.auth_tokens.findMany({
+            select: {
+                api_token: true,
+                web_token: true,
+                expires: true,
+                renew: true,
+                username: true,
+            }
+        }).then((val) => {
+            val.forEach(dbState => {
+                this.authStates.set(dbState.username, {
+                    expires: dbState.expires,
+                    api_token: dbState.api_token,
+                    web_token: dbState.web_token,
+                    renew: dbState.renew
+                })
+            })
+            this.cached = true;
+            console.log('Finished caching auth-states')
+        }).catch(err => console.log('Failed to cache auth-states:', err));
+    }
+
+    /**
+     * Sets a opeaque token for the user
      * @param user The user to generate the token for
      * @param type Either a `api_token` or `web_token`
      * @returns A reference to the auth-state after the generation
      */
-    private generateToken(user: string, type: 'api_token' | 'web_token'): IAuthState {
-        let expires: Date = new Date();
-        expires.setDate(expires.getDate() + config.auth.long_token_epxiry);
-        const token: string = randomBytes(64).toString('base64');
+    private setXToken(user: string, type: AuthToken): IAuthState {
+        let renew: Date = new Date();
+        renew.setSeconds(renew.getSeconds() + config.auth.token_renew)
+
+        const token: string = nanoid(64);
         let authState: IAuthState | undefined = undefined;
 
         if (this.authStates.has(user)) {
             authState = this.authStates.get(user) as IAuthState;
             authState[type] = token;
         } else {
-            authState = { expires: expires };
+            let expires: Date = new Date();
+            expires.setSeconds(expires.getSeconds() + config.auth.token_epxiry);
+
+            authState = { expires: expires, renew: renew };
             authState[type] = token;
             this.authStates.set(user, authState);
         }
@@ -113,134 +159,103 @@ class AuthStateProvider {
     }
 
     /**
-     * Generate both `web_token` and `api_token` for a user
+     * Sets both `web_token` and `api_token` for a user
      * @param user The user to generate the token for
-     * @returns    True if successful, false otherwise
+     * @returns    The new auth-state
      */
-    async generateAuthTokens(user: string): Promise<boolean> {
-        this.generateToken(user, 'api_token');
-        const authState: IAuthState = this.generateToken(user, 'web_token');
+    async setTokens(user: string): Promise<IAuthState> {
+        this.setXToken(user, 'api_token');
+        const authState: IAuthState = this.setXToken(user, 'web_token');
+        const renew = new Date((new Date().getSeconds() + config.auth.token_renew) * 1e3);
+        authState.renew = renew;
 
-        try {
-            await prisma.long_lived_tokens.upsert({
-                create: {
-                    username: user,
-                    expires: authState.expires,
-                    api_token: authState.api_token as string,
-                    web_token: authState.web_token as string,
-                },
-                update: {
-                    username: user,
-                    expires: authState.expires,
-                    api_token: authState.api_token as string,
-                    web_token: authState.web_token as string,
-                },
-                where: {
-                    username: user,
-                },
-            })
-        } catch(error) {
+        prisma.auth_tokens.upsert({
+            create: {
+                username: user,
+                expires: authState.expires,
+                renew: renew,
+                api_token: authState.api_token as string,
+                web_token: authState.web_token as string,
+            },
+            update: {
+                username: user,
+                renew: renew,
+                api_token: authState.api_token as string,
+                web_token: authState.web_token as string,
+            },
+            where: {
+                username: user,
+            },
+        }).catch((error) => {
             console.log('Unexpected error during creation of both tokens:', error);
-            return false;
-        }
+        })
 
-        return true;
+        return authState;
     }
 
     /**
-     * Only generate the api-token for the user
-     * @param   user The user to generate the token for
-     * @returns      True if successful, false otherwise
+     * Check if a token is valid. If not found in map due to caching not being finished, check in db. Delete from map on expired
+     * @param type  either `web_token` or `api_token`
+     * @param token the token to check
+     * @returns     if the `token` is valid or not or needs to be renewed
      */
-    async generateAPIToken(user: string): Promise<boolean> {
-        const authState: IAuthState = this.generateToken(user, 'api_token');
+    async isXTokenValid(type: "web_token" | "api_token", token: string): Promise<AuthTokenStatus> {
+        let valid = AuthTokenStatus.INVALID;
+        let force = false; // enforce to return false if the token is expired
 
-        try {
-            await prisma.long_lived_tokens.update({
-                data: {
-                    api_token: authState.api_token
-                },
-                where: {
-                    username: user
+        this.authStates.forEach((val: IAuthState, key: string) => {
+            if (val[type] === token) {
+                if (val.expires > new Date()) {
+                    this.authStates.delete(key);
+                    force = true;
+                } else {
+                    valid = AuthTokenStatus.VALID;
                 }
-            })
-        } catch (error) {
-            console.error('Unexpected error accourd while creating api-token:', error);
-            return false;
+            }
+        });
+
+        if (!valid && !this.cached && !force) {
+            valid = await this.isXTokenValidDB(type, token) ? AuthTokenStatus.VALID : AuthTokenStatus.INVALID;
         }
 
-        return true;
+        return valid;
+    }
+
+
+    /**
+     * Check if token is valid in database
+     * @param type  either `web_token` or `api_token`
+     * @param token the token to check
+     * @returns     if the `token` is valid or not
+     */
+    async isXTokenValidDB(type: "web_token" | "api_token", token: string): Promise<boolean> {
+        return await prisma.auth_tokens.count({
+            where: {
+                [type]: token
+            }
+        }) == 1;
     }
 
     /**
-     * Generate an jwt-access-token for a specific user
-     * @param user The user to generate the token for
-     * @returns A promise containing the generated token if successfuly, undefined otherwise
+     * Renew both `web_token` and `api_token`
+     * @param api_token the old `api_token`
+     * @param web_token the old `web_token`
+     * @returns         the new auth-state
      */
-    async generateAccessToken(user: string): Promise<string | undefined> {
-        const expires: Date = new Date();
-        expires.setSeconds(expires.getSeconds() + config.auth.access_expiry);
-        try {
-            return (await new jose.SignJWT()
-            .setProtectedHeader({ alg: config.auth.jwt.alg })
-            .setJti(nanoid())
-            .setExpirationTime(expires)
-            .setIssuer(config.auth.jwt.issuer)
-            .setIssuedAt(new Date())
-            .setSubject(user)
-            .sign(new TextEncoder().encode(secrets.acces_jwt)));
-        } catch(error) {
-            console.error('Unexpected error during access-token generation:', error);
-        }
-    }
-
-    /**
-     * Check if a acces-token is valid
-     * @param token The token to verify
-     * @returns A promise containing the user if valid, undefined otherwise and when an unexpected error occurs
-     */
-    async isAccesJWTValid(token: string): Promise<string | undefined> {
-        try {
-            return (await jose.jwtVerify(token, new TextEncoder().encode(secrets.acces_jwt))).payload.sub;
-        } catch(error) {
-            if (!(error instanceof JWTExpired || error instanceof JWTInvalid)) {
-                console.error('Unexpected error while validating access-token:', error);
-            }    
-        }
-        return;
-    }
-
-    /**
-     * Function to set both the refresh-token and the access-token
-     * @param refreshToken the user 
-     * @param res 
-     */
-    async setFreshTokensOnClient(refreshToken: string, res: NextResponse): Promise<boolean> {
-        let expiryRefresh: Date = new Date();
-        expiryRefresh.setDate(expiryRefresh.getDate() + config.auth.long_token_epxiry);
-    
-        let expiryAccess: Date = new Date();
-        expiryAccess.setSeconds(expiryAccess.getSeconds() + config.auth.access_expiry);
-    
-        const secure: boolean = process.env.NODE_ENV === 'production';
-    
-        let user: string = '';
-        
-        this.authStates.keys().map((val: string) => {
-            if (this.authStates.get(val)?.api_token === refreshToken) {
-                user = val;
+    async renewTokens(api_token: string, web_token: string): Promise<IAuthState | undefined> {
+        let user: string | undefined = undefined;
+        this.authStates.forEach((val: IAuthState, key: string) => {
+            if (val.api_token === api_token && val.web_token == web_token) {
+                user = key;
             }
         })
 
         if (!user) {
-            return false;
+            return undefined;
         }
-    
-        res.cookies.set('refresh-token', authStateProvider.authStates.get(user)?.api_token as string, { path: '/api/auth/token', expires: expiryRefresh, sameSite: "strict", httpOnly: true, secure: secure });
-        res.cookies.set('auth-token', await authStateProvider.generateAccessToken(user) as string, { path: '/', expires: expiryAccess, httpOnly: false, secure: secure });
 
-        return false;
+        return await this.setTokens(user);
     }
 }
 
-export const authStateProvider = new AuthStateProvider();
+export const ASP = new AuthStateProvider();

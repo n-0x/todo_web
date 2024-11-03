@@ -1,7 +1,6 @@
-import { Prisma, PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { Collection, Db, MongoClient } from 'mongodb';
 import { secrets } from './constants';
-import { DefaultArgs } from '@prisma/client/runtime/library';
 
 const prismaClient = new PrismaClient();
 
@@ -9,7 +8,7 @@ prismaClient.$connect().catch(error => console.error(error));
 
 export const prisma = {
     user: prismaClient.users,
-    long_lived_tokens: prismaClient.long_lived_tokens
+    auth_tokens: prismaClient.auth_tokens
 };
 
 class MongoDB {

@@ -17,10 +17,9 @@ export default function Signup() {
             },
             body: JSON.stringify({ username: username, email: email, password: password })
         }).then((res: Response) => {
-            console.log(res);
             res.json().then(val => {
                 console.log(val);
-                setMessage(`${val.message}. Code: ${val.code}`);
+                setMessage(`${val.type}. Code: ${res.status}`);
             })
         })
     }

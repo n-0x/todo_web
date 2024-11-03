@@ -19,14 +19,15 @@ model users {
   username   String       @unique
   pass_hash  String
 
-  long_lived_tokens long_lived_tokens[]
+  auth_tokens auth_tokens[]
 }
 
-model long_lived_tokens {
+model auth_tokens {
   id         Int           @id @default(autoincrement())
   user       users         @relation(fields: [username], references: [username])
   username   String        @unique
   api_token  String
   web_token  String
-  expires     DateTime
+  renew      DateTime
+  expires    DateTime
 }

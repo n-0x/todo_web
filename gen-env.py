@@ -9,7 +9,10 @@ JWT_SECRET=""
 # Mongodb-secrets
 MONGODB_USER=""
 MONGODB_PASSWORD=""
-MONGODB_HOST=\"\""""
+MONGODB_HOST=\"\"
+
+# S2S-secret token
+S2S_SECRET)\"\""""
 
 def main():
     file = '.env'

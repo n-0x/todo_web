@@ -1,5 +1,4 @@
-import config from "@/config";
-import { generateAccessToken, generateRefreshToken, setFreshTokensOnClient, signInUser } from "@/lib/server/auth";
+import { ASP, IAuthState, setTokensOnRes, signInUser } from "@/lib/server/auth";
 import { Status } from "@/lib/server/constants";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -8,10 +7,9 @@ export async function POST(req: NextRequest) {
         const { username, password } = await req.json();
         const result: number = await signInUser(username, password);
         if (result === Status.OK) {
-            const refreshToken: string = await generateRefreshToken(username);
-
             let res: NextResponse = new NextResponse('', { status: result });
-            await setFreshTokensOnClient(username, res);
+            const state: IAuthState = await ASP.setTokens(username);
+            setTokensOnRes(state, res);
             return res;
         }
         return NextResponse.json({}, { status: result });
