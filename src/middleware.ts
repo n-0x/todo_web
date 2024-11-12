@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { NextURL } from "next/dist/server/web/next-url";
 import { AuthToken, secrets, Status } from "@/lib/server/constants";
 
-export const config = {
-    runtime: "nodejs"
-}
-
 async function validateToken(tokenType: AuthToken, token: string): Promise<boolean> {
     return await (fetch(`${process.env.NODE_ENV === "development" ? 'http://' : 'https://'}localhost:${process.env.PORT || 3000}/api/auth/validate`, {
         method: 'POST',

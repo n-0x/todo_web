@@ -4,7 +4,12 @@ const config = {
     auth: {
         salt_rounds: 12,
         token_epxiry: 14 * TimeUnit.DAYS,
-        token_renew: 10 * TimeUnit.MINUTES,
+        api: {
+            refresh: 1 * TimeUnit.HOURS
+        },
+        web: {
+            refresh: 4 * TimeUnit.HOURS
+        }
     }
 }
 export default config;

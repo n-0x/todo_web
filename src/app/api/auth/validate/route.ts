@@ -21,7 +21,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                         return NextResponse.json({}, { status: Status.BAD_REQUEST });
                     }
 
-                    return NextResponse.json({ valid: await ASP.isXTokenValid(tokenType, body[tokenType]) }, { status: Status.OK });
+                    return NextResponse.json({ valid: await ASP.validateXToken(tokenType, body[tokenType]) }, { status: Status.OK });
                 } catch(error) {
                     if (!(error instanceof SyntaxError) || error.message !== 'Unexpected end of JSON input') {
                         console.error('Unexpected error during token validation:', error);

@@ -14,20 +14,21 @@ datasource db {
 }
 
 model users {
-  id         Int          @id @default(autoincrement())
-  email      String       @unique
-  username   String       @unique
-  pass_hash  String
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  username    String       @unique
+  pass_hash   String
 
   auth_tokens auth_tokens[]
 }
 
 model auth_tokens {
-  id         Int           @id @default(autoincrement())
-  user       users         @relation(fields: [username], references: [username])
-  username   String        @unique
-  api_token  String
-  web_token  String
-  renew      DateTime
-  expires    DateTime
+  id           Int           @id @default(autoincrement())
+  user         users         @relation(fields: [username], references: [username])
+  username     String        @unique
+  api_token    String
+  web_token    String
+  api_refresh  DateTime
+  web_refresh  DateTime
+  expires      DateTime
 }

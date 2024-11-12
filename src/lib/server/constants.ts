@@ -31,10 +31,21 @@ export interface IStatusWithMeta {
     code: number
 }
 
-export type AuthToken = 'api_token' | 'web_token';
+export type AuthToken = 'api' | 'web';
 
 export const TimeUnit = {
     SECONDS: 1,
     MINUTES: 60,
-    DAYS: 86_400,
+    HOURS:   3_600,
+    DAYS:    86_400,
 }
+
+/**
+ * The 3 states of an auth-token:
+ * - `SOUR`: A token needs to be renewed
+ * - `VALID`: Token is valid
+ * - `INVALID`: Token is invalid or expired
+ */
+export enum AuthTokenStatus {
+    SOUR, VALID, INVALID
+};

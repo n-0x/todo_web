@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
         const result: number = await signInUser(username, password);
         if (result === Status.OK) {
             let res: NextResponse = new NextResponse('', { status: result });
-            const state: IAuthState = await ASP.setTokens(username);
+            const state: IAuthState = await ASP.createAuthState(username);
             setTokensOnRes(state, res);
             return res;
         }

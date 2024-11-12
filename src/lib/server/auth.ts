@@ -3,8 +3,9 @@ import { prisma } from "./db";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import config from "@/config";
 import { nanoid } from "nanoid";
-import { Status, IStatusWithMeta, secrets, AuthToken } from "./constants";
+import { Status, IStatusWithMeta, secrets, AuthToken, AuthTokenStatus } from "./constants";
 import { NextResponse } from "next/server";
+import dayjs from "dayjs";
 
 export async function createUser(username: string, email: string, password: string): Promise<IStatusWithMeta> {
     if (!username || !password) {
@@ -73,26 +74,20 @@ export async function signInUser(username: string, password: string): Promise<nu
 }
 
 export function setTokensOnRes(state: IAuthState, res: NextResponse) {
-    res.cookies.set('web_token', state.web_token as string , { path: '/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
-    res.cookies.set('api_token', state.api_token as string , { path: '/api/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
+    res.cookies.set('web_token', state.web.token as string , { path: '/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
+    res.cookies.set('api_token', state.api.token as string , { path: '/api/', httpOnly: true, expires: state.expires, sameSite: "lax", secure: process.env.NODE_ENV !== "development" })
+}
+
+export interface IToken {
+    token: string,
+    refresh: Date
 }
 
 export interface IAuthState {
-    api_token?: string,
-    web_token?: string,
+    api: IToken,
+    web: IToken,
     expires: Date,
-    renew: Date
 }
-
-/**
- * The 3 states of an auth-token:
- * - `SOUR`: A token needs to be renewed
- * - `VALID`: Token is valid
- * - `INVALID`: Token is invalid or expired
- */
-export enum AuthTokenStatus {
-    SOUR, VALID, INVALID
-};
 
 class AuthStateProvider {
 
@@ -112,17 +107,23 @@ class AuthStateProvider {
             select: {
                 api_token: true,
                 web_token: true,
+                web_refresh: true,
+                api_refresh: true,
                 expires: true,
-                renew: true,
                 username: true,
             }
         }).then((val) => {
             val.forEach(dbState => {
                 this.authStates.set(dbState.username, {
                     expires: dbState.expires,
-                    api_token: dbState.api_token,
-                    web_token: dbState.web_token,
-                    renew: dbState.renew
+                    api: {
+                        token: dbState.api_token,
+                        refresh: dbState.api_refresh,
+                    },
+                    web: {
+                        token: dbState.web_token,
+                        refresh: dbState.web_refresh,
+                    }
                 })
             })
             this.cached = true;
@@ -137,55 +138,55 @@ class AuthStateProvider {
      * @returns A reference to the auth-state after the generation
      */
     private setXToken(user: string, type: AuthToken): IAuthState {
-        let renew: Date = new Date();
-        renew.setSeconds(renew.getSeconds() + config.auth.token_renew)
-
+        let renewTime = new Date();
         const token: string = nanoid(64);
         let authState: IAuthState | undefined = undefined;
+        
+        authState = this.authStates.get(user) as IAuthState;
+        renewTime.setSeconds(renewTime.getSeconds() + config.auth[type].refresh)
+        authState[type].token = token;
+        authState[type].refresh = renewTime;
 
-        if (this.authStates.has(user)) {
-            authState = this.authStates.get(user) as IAuthState;
-            authState[type] = token;
-        } else {
-            let expires: Date = new Date();
-            expires.setSeconds(expires.getSeconds() + config.auth.token_epxiry);
-
-            authState = { expires: expires, renew: renew };
-            authState[type] = token;
-            this.authStates.set(user, authState);
-        }
+        prisma.auth_tokens.update({
+            data: {
+                [type + '_token']: authState[type].token,
+                [type + '_refresh']: authState[type].refresh,
+            },
+            where: {
+                username: user
+            }
+        })
 
         return authState;
     }
 
     /**
-     * Sets both `web_token` and `api_token` for a user
+     * Creates an auth-state and sets both `web_token` and `api_token` for a user
      * @param user The user to generate the token for
      * @returns    The new auth-state
      */
-    async setTokens(user: string): Promise<IAuthState> {
-        this.setXToken(user, 'api_token');
-        const authState: IAuthState = this.setXToken(user, 'web_token');
-        const renew = new Date((new Date().getSeconds() + config.auth.token_renew) * 1e3);
-        authState.renew = renew;
+    async createAuthState(user: string): Promise<IAuthState> {
+        const authState: IAuthState = {
+            api: {
+                token: nanoid(),
+                refresh: dayjs().add(config.auth.api.refresh, 's').toDate(),
+            },
+            web: {
+                token: nanoid(),
+                refresh: dayjs().add(config.auth.web.refresh, 's').toDate()
+            },
+            expires: dayjs().add(config.auth.token_epxiry, 's').toDate(),
+        }
 
-        prisma.auth_tokens.upsert({
-            create: {
+        prisma.auth_tokens.create({
+            data: {
                 username: user,
                 expires: authState.expires,
-                renew: renew,
-                api_token: authState.api_token as string,
-                web_token: authState.web_token as string,
-            },
-            update: {
-                username: user,
-                renew: renew,
-                api_token: authState.api_token as string,
-                web_token: authState.web_token as string,
-            },
-            where: {
-                username: user,
-            },
+                api_token: authState.api.token as string,
+                web_token: authState.web.token as string,
+                api_refresh: authState.api.refresh,
+                web_refresh: authState.web.refresh
+            }
         }).catch((error) => {
             console.log('Unexpected error during creation of both tokens:', error);
         })
@@ -195,66 +196,71 @@ class AuthStateProvider {
 
     /**
      * Check if a token is valid. If not found in map due to caching not being finished, check in db. Delete from map on expired
-     * @param type  either `web_token` or `api_token`
+     * @param type  either `web` or `api`
      * @param token the token to check
      * @returns     if the `token` is valid or not or needs to be renewed
      */
-    async isXTokenValid(type: "web_token" | "api_token", token: string): Promise<AuthTokenStatus> {
-        let valid = AuthTokenStatus.INVALID;
-        let force = false; // enforce to return false if the token is expired
+    async validateXToken(type: AuthToken, token: string): Promise<AuthTokenStatus> {
+        let tokenStatus = AuthTokenStatus.INVALID;
 
         this.authStates.forEach((val: IAuthState, key: string) => {
-            if (val[type] === token) {
-                if (val.expires > new Date()) {
-                    this.authStates.delete(key);
-                    force = true;
-                } else {
-                    valid = AuthTokenStatus.VALID;
+            if (val[type].token === token) {
+                if (dayjs(val.expires).isBefore(dayjs())) {
+                    tokenStatus = AuthTokenStatus.VALID;
+                } else if(dayjs(val[type].refresh).isAfter(dayjs())) {
+                    tokenStatus = AuthTokenStatus.SOUR;
                 }
             }
         });
 
-        if (!valid && !this.cached && !force) {
-            valid = await this.isXTokenValidDB(type, token) ? AuthTokenStatus.VALID : AuthTokenStatus.INVALID;
+        if (tokenStatus == AuthTokenStatus.INVALID && !this.cached) {
+            tokenStatus = await this.isXTokenValidDB(type, token) ? AuthTokenStatus.VALID : AuthTokenStatus.INVALID;
         }
 
-        return valid;
+        return tokenStatus;
     }
 
 
     /**
      * Check if token is valid in database
-     * @param type  either `web_token` or `api_token`
+     * @param type  either `web` or `api`
      * @param token the token to check
      * @returns     if the `token` is valid or not
      */
-    async isXTokenValidDB(type: "web_token" | "api_token", token: string): Promise<boolean> {
+    async isXTokenValidDB(type: AuthToken, token: string): Promise<boolean> {
         return await prisma.auth_tokens.count({
             where: {
-                [type]: token
+                [type + '_token']: token
             }
         }) == 1;
     }
 
+    
+
     /**
-     * Renew both `web_token` and `api_token`
-     * @param api_token the old `api_token`
-     * @param web_token the old `web_token`
+     * Renew either a `web_token` or `api_token`
+     * @param type either `web` or `api`
+     * @param old_token the old token
      * @returns         the new auth-state
      */
-    async renewTokens(api_token: string, web_token: string): Promise<IAuthState | undefined> {
-        let user: string | undefined = undefined;
-        this.authStates.forEach((val: IAuthState, key: string) => {
-            if (val.api_token === api_token && val.web_token == web_token) {
-                user = key;
-            }
-        })
+    async renewXToken(type: AuthToken, old_token: string): Promise<IAuthState | undefined> {
+        let token: IToken | undefined;
+        let stateReference: IAuthState | undefined;
 
-        if (!user) {
+        for (let state of Array.from(this.authStates.values())) {
+            if (state[type].token === old_token) {
+                token = state[type];
+                stateReference = state;
+            }
+        }
+
+        if (!token) {
             return undefined;
         }
 
-        return await this.setTokens(user);
+        token.refresh = dayjs().add(config.auth[type].refresh, 's').toDate();
+
+        return stateReference;
     }
 }
 
