@@ -114,21 +114,35 @@ class AuthStateProvider {
             }
         }).then((val) => {
             val.forEach(dbState => {
-                this.authStates.set(dbState.username, {
-                    expires: dbState.expires,
-                    api: {
-                        token: dbState.api_token,
-                        refresh: dbState.api_refresh,
-                    },
-                    web: {
-                        token: dbState.web_token,
-                        refresh: dbState.web_refresh,
-                    }
-                })
+                this.authStates.set(dbState.username, this.dbToAuthState(dbState)!)
             })
             this.cached = true;
             console.log('Finished caching auth-states')
         }).catch(err => console.log('Failed to cache auth-states:', err));
+    }
+
+    private dbToAuthState(dbState: {
+        username: string,
+        web_token: string,
+        expires: Date,
+        api_token: string,
+        api_refresh: Date,
+        web_refresh: Date,
+    } | null): IAuthState | undefined {
+        if (!dbState) {
+            return undefined;
+        }
+        return {
+            expires: dbState.expires,
+            api: {
+                token: dbState.api_token,
+                refresh: dbState.api_refresh,
+            },
+            web: {
+                token: dbState.web_token,
+                refresh: dbState.web_refresh,
+            }
+        }
     }
 
     /**
@@ -213,20 +227,32 @@ class AuthStateProvider {
      */
     async validateXToken(type: AuthToken, token: string): Promise<AuthTokenStatus> {
         let tokenStatus = AuthTokenStatus.INVALID;
+        let state: IAuthState | undefined;
 
         this.authStates.forEach((val: IAuthState, key: string) => {
             if (val[type].token === token) {
-                if (dayjs().isBefore(val.expires)) {
-                    tokenStatus = AuthTokenStatus.VALID;
-                }
-                if(dayjs().isAfter(val[type].refresh)) {
-                    tokenStatus = AuthTokenStatus.SOUR;
-                }
+                state = val;
             }
         });
 
-        if (tokenStatus == AuthTokenStatus.INVALID && !this.cached) {
-            tokenStatus = await this.isXTokenValidDB(type, token) ? AuthTokenStatus.VALID : AuthTokenStatus.INVALID;
+        if (!state && !this.cached) {
+            state = this.dbToAuthState(await prisma.auth_tokens.findFirst({
+                where: {
+                    [type + '_token']: token
+                }
+            }));
+        }
+
+        if (!state) {
+            console.log('Token neither found in db or in memory-storage!')
+            return AuthTokenStatus.INVALID;
+        }
+
+        if (dayjs().isBefore(state.expires)) {
+            tokenStatus = AuthTokenStatus.VALID;
+        }
+        if(dayjs().isAfter(state[type].refresh)) {
+            tokenStatus = AuthTokenStatus.SOUR;
         }
 
         return tokenStatus;
@@ -253,7 +279,7 @@ class AuthStateProvider {
      * Renew either a `web_token` or `api_token`
      * @param type either `web` or `api`
      * @param old_token the old token
-     * @returns         the new auth-state
+     * @returns         the new auth-state or undifined if the token is invalid
      */
     async renewXToken(type: AuthToken, old_token: string): Promise<IAuthState | undefined> {
         let token: IToken | undefined;

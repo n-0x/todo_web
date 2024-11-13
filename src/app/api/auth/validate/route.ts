@@ -1,5 +1,5 @@
-import { ASP } from "@/lib/server/auth";
-import { AuthToken, secrets, Status } from "@/lib/server/constants";
+import { ASP, IAuthState } from "@/lib/server/auth";
+import { AuthToken, AuthTokenStatus, secrets, Status } from "@/lib/server/constants";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -17,11 +17,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                         return NextResponse.json({}, { status: Status.BAD_REQUEST });
                     }
 
-                    if (!body[tokenType]) {
+                    const token = body[tokenType];
+
+                    if (!token) {
                         return NextResponse.json({}, { status: Status.BAD_REQUEST });
                     }
 
-                    return NextResponse.json({ valid: await ASP.validateXToken(tokenType, body[tokenType]) }, { status: Status.OK });
+                    const res = await ASP.validateXToken(tokenType, token);
+                    if (res == AuthTokenStatus.SOUR) {
+                        const newState = await ASP.renewXToken(tokenType, token);
+                        if (!newState) {
+                            console.log(`${body.sender} tried to renew a token without a valid old one!`)
+                            return NextResponse.json({ valid: AuthTokenStatus.INVALID });
+                        }
+                        return NextResponse.json({ valid: res, type: tokenType, token: newState[tokenType].token, expires: newState.expires }, { status: Status.OK });
+                    }
+                    return NextResponse.json({ valid: res }, { status: Status.OK });
                 } catch(error) {
                     if (!(error instanceof SyntaxError) || error.message !== 'Unexpected end of JSON input') {
                         console.error('Unexpected error during token validation:', error);
