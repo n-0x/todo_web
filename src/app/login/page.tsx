@@ -17,7 +17,7 @@ export default function Login() {
       },
       body: JSON.stringify({ username: username, password: password })
     }).then(async res => {
-      setMessage(res.statusText)
+      setMessage(res.statusText);
       if (res.ok) {
         window.location.replace('/')
       }

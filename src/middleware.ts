@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NextURL } from "next/dist/server/web/next-url";
-import { AuthToken, secrets, Status } from "@/lib/server/constants";
+import { AuthToken, AuthTokenStatus, secrets, Status } from "@/lib/server/constants";
 
-async function validateToken(tokenType: AuthToken, token: string): Promise<boolean> {
+async function validateToken(tokenType: AuthToken, token: string): Promise<AuthTokenStatus> {
     return await (fetch(`${process.env.NODE_ENV === "development" ? 'http://' : 'https://'}localhost:${process.env.PORT || 3000}/api/auth/validate`, {
         method: 'POST',
         headers: {
@@ -32,9 +32,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     const dest: NextURL = req.nextUrl.clone();
     if (dest.pathname.startsWith('/api/')) {
         if (req.cookies.has('api_token') && req.cookies.get('api_token')) {
-            const res = await validateToken('api_token', req.cookies.get('api_token')?.value as string);
+            const res = await validateToken('api', req.cookies.get('api_token')?.value as string);
 
-            if (res) {
+            if (res === AuthTokenStatus.VALID) {
                 return NextResponse.next();
             }
         }
@@ -43,9 +43,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     }
 
     if (req.cookies.has('web_token') && req.cookies.get('web_token')) {
-        const res = await validateToken('web_token', req.cookies.get('web_token')?.value as string);
+        const res = await validateToken('web', req.cookies.get('web_token')?.value as string);
         
-        if (res) {
+        if (res === AuthTokenStatus.VALID) {
             return NextResponse.next();
         }
 

@@ -9,10 +9,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 try {
                     const body = await req.json();
                     let tokenType: AuthToken;
-                    if ('web_token' in body) {
-                        tokenType = 'web_token';
-                    } else if (req.cookies.has('api_token')) {
-                        tokenType = 'api_token';
+                    if ('web' in body) {
+                        tokenType = 'web';
+                    } else if ('api' in body) {
+                        tokenType = 'api';
                     } else {
                         return NextResponse.json({}, { status: Status.BAD_REQUEST });
                     }

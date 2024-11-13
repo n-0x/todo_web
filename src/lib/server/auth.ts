@@ -161,7 +161,7 @@ class AuthStateProvider {
     }
 
     /**
-     * Creates an auth-state and sets both `web_token` and `api_token` for a user
+     * Creates an auth-state and sets both `web_token` and `api_token` for a user and adds it to the map. Update if already exists update it.
      * @param user The user to generate the token for
      * @returns    The new auth-state
      */
@@ -178,14 +178,25 @@ class AuthStateProvider {
             expires: dayjs().add(config.auth.token_epxiry, 's').toDate(),
         }
 
-        prisma.auth_tokens.create({
-            data: {
+        this.authStates.set(user, authState);
+
+        prisma.auth_tokens.upsert({
+            create: {
                 username: user,
                 expires: authState.expires,
                 api_token: authState.api.token as string,
                 web_token: authState.web.token as string,
                 api_refresh: authState.api.refresh,
                 web_refresh: authState.web.refresh
+            },
+            update: {
+                api_token: authState.api.token as string,
+                web_token: authState.web.token as string,
+                api_refresh: authState.api.refresh,
+                web_refresh: authState.web.refresh
+            },
+            where: {
+                username: user
             }
         }).catch((error) => {
             console.log('Unexpected error during creation of both tokens:', error);
@@ -205,9 +216,10 @@ class AuthStateProvider {
 
         this.authStates.forEach((val: IAuthState, key: string) => {
             if (val[type].token === token) {
-                if (dayjs(val.expires).isBefore(dayjs())) {
+                if (dayjs().isBefore(val.expires)) {
                     tokenStatus = AuthTokenStatus.VALID;
-                } else if(dayjs(val[type].refresh).isAfter(dayjs())) {
+                }
+                if(dayjs().isAfter(val[type].refresh)) {
                     tokenStatus = AuthTokenStatus.SOUR;
                 }
             }
